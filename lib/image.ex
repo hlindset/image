@@ -1543,21 +1543,21 @@ defmodule Image do
         {suffix, options} = Keyword.pop(options, :suffix)
         options = suffix <> loader_options(options)
 
-        result =
-          image
-          |> Vimage.write_to_stream(options)
-          |> Enum.reduce_while(conn, fn chunk, conn ->
-            case Plug.Conn.chunk(conn, chunk) do
-              {:ok, conn} ->
-                {:cont, conn}
+        with {:ok, chunks} <- encoded_chunks(image, options, suffix) do
+          result =
+            Enum.reduce_while(chunks, conn, fn chunk, conn ->
+              case Plug.Conn.chunk(conn, chunk) do
+                {:ok, conn} ->
+                  {:cont, conn}
 
-              {:error, :closed} = error ->
-                {:halt, error}
-            end
-          end)
+                {:error, :closed} = error ->
+                  {:halt, error}
+              end
+            end)
 
-        with %Plug.Conn{} <- result do
-          {:ok, result}
+          with %Plug.Conn{} <- result do
+            {:ok, result}
+          end
         end
       end
     end
@@ -1585,13 +1585,33 @@ defmodule Image do
     {suffix, options} = Keyword.pop(options, :suffix)
     options = suffix <> loader_options(options)
 
-    image
-    |> Vimage.write_to_stream(options)
-    |> Stream.into(stream)
-    |> Stream.run()
+    with {:ok, chunks} <- encoded_chunks(image, options, suffix) do
+      chunks
+      |> Stream.into(stream)
+      |> Stream.run()
+    end
   rescue
     e in Vix.Vips.Image.Error ->
       {:error, e.message}
+  end
+
+  # Formats that require a seekable target and therefore cannot encode
+  # directly to a non-seekable stream. These are buffered fully in memory
+  # and then emitted as chunks. JPEG XL as implemented in libvips at the
+  # moment needs to seek back to patch container box/header sizes.
+  defp buffered_only?("." <> _ = suffix), do: String.downcase(suffix) in [".jxl"]
+  defp buffered_only?(_), do: false
+
+  # `suffix` is the raw suffix (".jxl")
+  # `options` is the already-joined libvips option string (".jxl[Q=75,...]").
+  defp encoded_chunks(image, options, suffix) do
+    if buffered_only?(suffix) do
+      with {:ok, binary} <- Vimage.write_to_buffer(image, options) do
+        {:ok, [binary]}
+      end
+    else
+      {:ok, Vimage.write_to_stream(image, options)}
+    end
   end
 
   defp write_path([image_path], image, options) do
@@ -1816,7 +1836,11 @@ defmodule Image do
       {buffer_size, options} = Keyword.pop(options, :buffer_size, :unbuffered)
       options = suffix <> loader_options(options)
 
-      stream = Vimage.write_to_stream(image, options)
+      stream =
+        case encoded_chunks(image, options, suffix) do
+          {:ok, chunks} -> chunks
+          {:error, reason} -> raise Image.Error, reason
+        end
 
       if buffer_size == :unbuffered || buffer_size == 0 do
         stream

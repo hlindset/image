@@ -442,8 +442,11 @@ defmodule Image.Test do
   describe "Saving a JXL file" do
     @jxl_supported Image.TestSupport.jxl_supported?()
 
+    # A small source image keeps these tests fast. JXL at high effort
+    # (e.g. minimize_file_size) on a multi-megapixel image can exceed
+    # ExUnit's default per-test timeout under concurrent suite load.
     setup do
-      {:ok, image: Image.open!("./test/support/images/Hong-Kong-2015-07-1998.jpg")}
+      {:ok, image: Image.open!(image_path("Kip_small.jpg"))}
     end
 
     if @jxl_supported do
@@ -587,10 +590,41 @@ defmodule Image.Test do
         assert {:error, _} = Image.write(image, path, quality: 80, jxl: [distance: 1.0])
       end
 
-      test "writes a .jxl with :background", %{image: image, dir: dir} do
+      test "writes a .jxl to a File.Stream and reads it back", %{image: image, dir: dir} do
         path = Temp.path!(suffix: ".jxl", basedir: dir)
-        assert {:ok, _} = Image.write(image, path, background: [255, 255, 255])
+        assert {:ok, _} = Image.write(image, File.stream!(path), suffix: ".jxl")
+
+        assert {:ok, reloaded} = Image.open(path)
+        assert Image.width(reloaded) == Image.width(image)
+      end
+
+      test "writes an uppercase .JXL suffix to a File.Stream (buffered path)",
+           %{image: image, dir: dir} do
+        # The stream seam matches the suffix case-insensitively; a regression
+        # in that downcasing would route .JXL to the non-seekable path and fail.
+        path = Temp.path!(suffix: ".JXL", basedir: dir)
+        assert {:ok, _} = Image.write(image, File.stream!(path), suffix: ".JXL")
         assert {:ok, _} = Image.open(path)
+      end
+
+      test "stream!/2 produces valid JXL bytes", %{image: image} do
+        binary =
+          image
+          |> Image.stream!(suffix: ".jxl")
+          |> Enum.into([])
+          |> IO.iodata_to_binary()
+
+        assert byte_size(binary) > 0
+        assert {:ok, _} = Image.from_binary(binary)
+      end
+
+      test "stream!/2 with :buffer_size emits multiple valid JXL chunks", %{image: image} do
+        # JXL's buffered single binary must still re-chunk through buffer!/2
+        # (the S3 multi-part path).
+        chunks = image |> Image.stream!(suffix: ".jxl", buffer_size: 4096) |> Enum.to_list()
+
+        assert length(chunks) > 1
+        assert {:ok, _} = Image.from_binary(IO.iodata_to_binary(chunks))
       end
     end
   end
