@@ -149,7 +149,8 @@ defmodule Image.Options.Write do
 
   def validate_options(path, options) when is_binary(path) and is_list(options) do
     with {:ok, image_type} <- path |> Path.extname() |> image_type_from(options[:suffix]),
-         {:ok, options} <- merge_image_type_options(options, image_type) do
+         {:ok, options} <- merge_image_type_options(options, image_type),
+         :ok <- validate_quality_distance(options, image_type) do
       case Enum.reduce_while(options, options, &validate_option(&1, &2, image_type)) do
         {:error, value} ->
           {:error, value}
@@ -159,6 +160,25 @@ defmodule Image.Options.Write do
       end
     end
   end
+
+  # JPEG XL exposes both :quality (→ Q) and :distance (its native butteraugli
+  # metric). libvips silently lets distance win if both are given, so we reject
+  # the ambiguity instead.
+  defp validate_quality_distance(options, image_type) when is_jxl(image_type) do
+    # Treat an explicit `nil` value as absent — `quality: nil` should not
+    # trip the mutual-exclusion check against a real `:distance`.
+    if not is_nil(options[:quality]) and not is_nil(options[:distance]) do
+      {:error,
+       %Image.Error{
+         message: ":quality and :distance are mutually exclusive for JXL",
+         reason: ":quality and :distance are mutually exclusive for JXL"
+       }}
+    else
+      :ok
+    end
+  end
+
+  defp validate_quality_distance(_options, _image_type), do: :ok
 
   defp validate_option({:suffix, "." <> _suffix}, options, _image_type) do
     {:cont, options}

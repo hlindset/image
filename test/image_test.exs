@@ -576,6 +576,16 @@ defmodule Image.Test do
         assert %Vimage{} = Image.write!(image, path, distance: 1.0)
         assert_raise Image.Error, fn -> Image.write!(image, path, distance: 99) end
       end
+
+      test "rejects :quality and :distance together", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:error, _} = Image.write(image, path, quality: 80, distance: 1.0)
+      end
+
+      test "rejects :quality and :distance across the jxl: block", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:error, _} = Image.write(image, path, quality: 80, jxl: [distance: 1.0])
+      end
     end
   end
 end
