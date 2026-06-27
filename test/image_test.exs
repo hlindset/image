@@ -494,6 +494,18 @@ defmodule Image.Test do
         {:ok, reloaded} = Image.open(lossless_path)
         assert_images_equal(reloaded, image, 0.01)
       end
+
+      test "writes a .jxl with minimize_file_size: true", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, path, minimize_file_size: true)
+        assert {:ok, _} = Image.open(path)
+      end
+
+      test "writes a .jxl with minimize_file_size: false", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, path, minimize_file_size: false)
+        assert {:ok, _} = Image.open(path)
+      end
     end
   end
 end

@@ -280,6 +280,17 @@ defmodule Image.Options.Write do
     {:cont, options}
   end
 
+  # For JPEG XL, strip metadata only, matching HEIF/AVIF.
+  defp validate_option({:minimize_file_size, true}, options, image_type)
+       when is_jxl(image_type) do
+    options =
+      options
+      |> Keyword.delete(:minimize_file_size)
+      |> put_strip_metadata(true)
+
+    {:cont, options}
+  end
+
   # For tiff files, allow the :pyramid option
   defp validate_option({:pyramid, pyramid?}, options, image_type)
        when is_tiff(image_type) and is_boolean(pyramid?) do
@@ -287,7 +298,8 @@ defmodule Image.Options.Write do
   end
 
   defp validate_option({:minimize_file_size, false}, options, image_type)
-       when is_png(image_type) or is_jpg(image_type) or is_webp(image_type) do
+       when is_png(image_type) or is_jpg(image_type) or is_webp(image_type) or
+              is_jxl(image_type) do
     options =
       options
       |> Keyword.delete(:minimize_file_size)
