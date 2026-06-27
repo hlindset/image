@@ -1358,7 +1358,7 @@ defmodule Image do
     most image formats is `75`. For HEIF files the default
     is `50`.For PNG files the `:quality` option is ignored.
 
-  * `:lossy` is a boolean. On WebP and AVIF, `false`
+  * `:lossy` is a boolean. On WebP, AVIF, and JPEG XL `false`
     forces a lossless wire format (`lossless: true`); `true`
     keeps the default lossy encoder. On PNG, `true` enables
     palette quantisation (lossy 8-bit PNG); `false` is the
@@ -1475,6 +1475,63 @@ defmodule Image do
     size of the `heif` file at the cost of additional time to
     save the image. All metadata will also be removed.
 
+  #### JPEG XL images
+
+  JPEG XL output requires a `libvips` built with `libjxl`. The default
+  bundled `libvips` does not include it. See the README section on
+  using a platform provided `libvips`. Reading `.jxl` images works with
+  the same libjxl-enabled `libvips` and needs no special options.
+
+  * `:quality` is an integer in the range `1..100`. If neither
+    `:quality` nor `:distance` is given, output uses the `libvips`
+    default, equivalent to `quality: 75`.
+
+  * `:distance` is JPEG XL's native butteraugli distance, a
+    number (integer or float) in the range `0.0..25.0` where `0` is
+    lossless. `:quality` and `:distance` are mutually exclusive.
+
+    Using distance is preferred over quality in `libjxl`. A general guide
+    to distance values with approximated JPEG values:
+
+    | JXL distance | Approx. JPEG quality | Description                |
+    | ------------ | -------------------- | -------------------------- |
+    | 0            | — (lossless)         | Exact / lossless           |
+    | 0.5          | ~96                  | Maximum quality            |
+    | 0.75         | ~93                  | Very high                  |
+    | 1.0          | ~90                  | High / visually excellent  |
+    | 1.2          | ~88                  | High web quality           |
+    | 1.5          | ~84                  | Good default photo quality |
+    | 2.0          | ~79                  | Balanced                   |
+    | 2.5          | ~73                  | Economy                    |
+    | 3.0          | ~68                  | Aggressive                 |
+    | 4.0          | ~57                  | Low / preview              |
+    | 5.0          | ~46                  | Very low / placeholder     |
+
+  * `:effort` is an integer to adjust the level of CPU effort / search
+    depth. Higher values generally spend more CPU to improve compression
+    efficiency at the selected quality/distance, but they are not
+    guaranteed to reduce the file size, and can in some cases even
+    increase the file size.
+
+    The value must be in the range `1..10`, the default is `7`.
+
+  * `:minimize_file_size` is a boolean. For JXL it strips metadata only.
+
+  * `:tier` is an integer in the range `0..4` that trades decode
+    speed against file size. `0` (the default) gives the best
+    compression but the slowest decoding. Higher values decode
+    faster at the cost of a larger file.
+
+  * `:bitdepth` is an integer in the range `1..16`, and controls
+    output bits per channel. Defaults to `8`.
+
+  * JXL also accepts the shared `:lossy`, `:strip_metadata`, and
+    `:icc_profile` options described above.
+
+  Because the JPEG XL encoder requires a seekable target, writing a
+  `.jxl` to a stream or `t:Plug.Conn.t/0` buffers the whole encoded
+  image in memory before emitting it.
+
   ### TIFF options
 
   * `:pyramid` is a boolean indicating whether to write the
@@ -1496,7 +1553,7 @@ defmodule Image do
   the supplied options.
 
   The valid image type option keys are `:jpg`, `.png`,
-  `:gif`, `:tif`, `:webp`, `:heif` and `:avif`.
+  `:gif`, `:tif`, `:webp`, `:heif`, `:avif` and `:jxl`.
 
   This makes it easier to define a general purpose image
   processing pipeline that can still apply specific
