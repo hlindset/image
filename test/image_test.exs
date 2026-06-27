@@ -586,6 +586,12 @@ defmodule Image.Test do
         path = Temp.path!(suffix: ".jxl", basedir: dir)
         assert {:error, _} = Image.write(image, path, quality: 80, jxl: [distance: 1.0])
       end
+
+      test "writes a .jxl with :background", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, path, background: [255, 255, 255])
+        assert {:ok, _} = Image.open(path)
+      end
     end
   end
 end
