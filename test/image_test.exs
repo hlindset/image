@@ -461,6 +461,23 @@ defmodule Image.Test do
         assert is_binary(binary)
         assert {:ok, _} = Image.from_binary(binary)
       end
+
+      test "writes a .jxl with :quality (higher quality = larger file)", %{image: image, dir: dir} do
+        low = Temp.path!(suffix: ".jxl", basedir: dir)
+        high = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, low, quality: 10)
+        assert {:ok, _} = Image.write(image, high, quality: 90)
+
+        # proves :quality actually reaches the encoder, not just that it validates
+        assert File.stat!(high).size > File.stat!(low).size
+        assert {:ok, _} = Image.open(high)
+      end
+
+      test "writes a .jxl with :effort", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, path, effort: 3)
+        assert {:ok, _} = Image.open(path)
+      end
     end
   end
 end

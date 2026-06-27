@@ -434,6 +434,9 @@ defmodule Image.Options.Write do
   # Range 1..10
   defp conform_effort(effort, ".png"), do: effort
 
+  # Range 1..10
+  defp conform_effort(effort, ".jxl"), do: effort
+
   # Range 0..9
   defp conform_effort(effort, image_type) when is_heif(image_type) or is_avif(image_type),
     do: effort - 1
