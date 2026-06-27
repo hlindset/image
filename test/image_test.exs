@@ -438,4 +438,29 @@ defmodule Image.Test do
       end
     end
   end
+
+  describe "Saving a JXL file" do
+    @jxl_supported Image.TestSupport.jxl_supported?()
+
+    setup do
+      {:ok, image: Image.open!("./test/support/images/Hong-Kong-2015-07-1998.jpg")}
+    end
+
+    if @jxl_supported do
+      test "writes a bare .jxl to a file path and reads it back", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, path)
+
+        assert {:ok, reloaded} = Image.open(path)
+        assert Image.width(reloaded) == Image.width(image)
+        assert Image.height(reloaded) == Image.height(image)
+      end
+
+      test "writes a .jxl to :memory", %{image: image} do
+        assert {:ok, binary} = Image.write(image, :memory, suffix: ".jxl")
+        assert is_binary(binary)
+        assert {:ok, _} = Image.from_binary(binary)
+      end
+    end
+  end
 end

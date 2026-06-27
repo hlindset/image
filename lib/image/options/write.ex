@@ -22,6 +22,7 @@ defmodule Image.Options.Write do
           | webp_write_option()
           | heif_write_option()
           | gif_write_option()
+          | jxl_write_option()
         ]
 
   @typedoc "Options for writing an image stream"
@@ -66,6 +67,17 @@ defmodule Image.Options.Write do
           | {:minimize_file_size, boolean()}
           | {:effort, 1..10}
 
+  @typedoc "Options for writing a JPEG XL (jxl) file with `Image.write/2`."
+  @type jxl_write_option ::
+          {:effort, 1..10}
+          | {:lossy, boolean()}
+          | {:strip_metadata, boolean()}
+          | {:icc_profile, Path.t()}
+          | {:minimize_file_size, boolean()}
+          | {:distance, number()}
+          | {:tier, 0..4}
+          | {:bitdepth, 1..16}
+
   @typedoc "Allowable compression types for heif images."
   @type heif_compression :: :hevc | :avc | :jpeg | :av1
 
@@ -90,6 +102,9 @@ defmodule Image.Options.Write do
   @doc false
   defguard is_gif(image_type) when image_type in [".gif", ".GIF"]
 
+  @doc false
+  defguard is_jxl(image_type) when image_type == ".jxl"
+
   @suffix_map %{
     ".jpg" => :jpg,
     ".jpeg" => :jpg,
@@ -100,7 +115,8 @@ defmodule Image.Options.Write do
     ".heic" => :heif,
     ".avif" => :avif,
     ".gif" => :gif,
-    ".webp" => :webp
+    ".webp" => :webp,
+    ".jxl" => :jxl
   }
 
   @heif_compression_map %{
