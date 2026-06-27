@@ -333,9 +333,9 @@ defmodule Image.Options.Write do
   # `:lossy` is a friendly cross-format toggle that maps to the
   # right libvips knob per encoder:
   #
-  #   * WebP / AVIF — `lossless: !lossy` (toggles the lossless
+  #   * WebP / AVIF / JXL — `lossless: !lossy` (toggles the lossless
   #     wire format).
-  #   * PNG         — `palette: lossy` (palette-quantised PNG is
+  #   * PNG — `palette: lossy` (palette-quantised PNG is
   #     "lossy PNG"; equivalent to libvips' lossy png mode).
   #   * JPEG / GIF / TIFF / HEIF — not supported (JPEG is always
   #     lossy; GIF/TIFF lossiness is structural; HEIF is
@@ -366,6 +366,16 @@ defmodule Image.Options.Write do
       options
       |> Keyword.delete(:lossy)
       |> Keyword.put(:palette, lossy?)
+
+    {:cont, options}
+  end
+
+  defp validate_option({:lossy, lossy?}, options, image_type)
+       when is_jxl(image_type) and is_boolean(lossy?) do
+    options =
+      options
+      |> Keyword.delete(:lossy)
+      |> Keyword.put(:lossless, not lossy?)
 
     {:cont, options}
   end

@@ -478,6 +478,22 @@ defmodule Image.Test do
         assert {:ok, _} = Image.write(image, path, effort: 3)
         assert {:ok, _} = Image.open(path)
       end
+
+      test "lossy: false produces lossless JXL (larger, pixel-identical to source)",
+           %{image: image, dir: dir} do
+        lossy_path = Temp.path!(suffix: ".jxl", basedir: dir)
+        lossless_path = Temp.path!(suffix: ".jxl", basedir: dir)
+
+        assert {:ok, _} = Image.write(image, lossy_path, lossy: true)
+        assert {:ok, _} = Image.write(image, lossless_path, lossy: false)
+
+        assert File.stat!(lossless_path).size > File.stat!(lossy_path).size
+
+        # lossless must reproduce the source pixels exactly (tight threshold
+        # distinguishes true lossless from merely high-quality lossy)
+        {:ok, reloaded} = Image.open(lossless_path)
+        assert_images_equal(reloaded, image, 0.01)
+      end
     end
   end
 end
