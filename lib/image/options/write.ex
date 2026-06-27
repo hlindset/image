@@ -425,6 +425,22 @@ defmodule Image.Options.Write do
     {:cont, options}
   end
 
+  defp validate_option({:distance, distance}, options, image_type)
+       when is_jxl(image_type) and is_number(distance) and
+              distance >= 0.0 and distance <= 25.0 do
+    {:cont, options}
+  end
+
+  defp validate_option({:tier, tier}, options, image_type)
+       when is_jxl(image_type) and is_integer(tier) and tier in 0..4 do
+    {:cont, options}
+  end
+
+  defp validate_option({:bitdepth, bitdepth}, options, image_type)
+       when is_jxl(image_type) and is_integer(bitdepth) and bitdepth in 1..16 do
+    {:cont, options}
+  end
+
   defp validate_option(option, _options, image_type) do
     {:halt, {:error, invalid_option(option, image_type)}}
   end

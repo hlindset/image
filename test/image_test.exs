@@ -506,6 +506,76 @@ defmodule Image.Test do
         assert {:ok, _} = Image.write(image, path, minimize_file_size: false)
         assert {:ok, _} = Image.open(path)
       end
+
+      test "writes a .jxl with :distance (int + float; smaller distance = larger file)",
+           %{image: image, dir: dir} do
+        near_lossless = Temp.path!(suffix: ".jxl", basedir: dir)
+        lossy = Temp.path!(suffix: ".jxl", basedir: dir)
+        int_path = Temp.path!(suffix: ".jxl", basedir: dir)
+
+        assert {:ok, _} = Image.write(image, near_lossless, distance: 0.5)
+        assert {:ok, _} = Image.write(image, lossy, distance: 10.0)
+        assert {:ok, _} = Image.write(image, int_path, distance: 3)
+
+        # :distance is inverse quality — proves the value reaches the encoder
+        assert File.stat!(near_lossless).size > File.stat!(lossy).size
+      end
+
+      test "writes a .jxl with :tier (higher tier = larger file) and :bitdepth",
+           %{image: image, dir: dir} do
+        t0 = Temp.path!(suffix: ".jxl", basedir: dir)
+        t4 = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, t0, tier: 0)
+        assert {:ok, _} = Image.write(image, t4, tier: 4)
+
+        # tier trades decode speed for size — tier 4 is larger than tier 0.
+        # Proves the value reaches the encoder, not just that it validates.
+        assert File.stat!(t4).size > File.stat!(t0).size
+
+        bd = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, bd, bitdepth: 8)
+        assert {:ok, _} = Image.open(bd)
+      end
+
+      test "strip_metadata: true removes EXIF/XMP from a JXL written to :memory",
+           %{image: image} do
+        exif_count = fn binary ->
+          {:ok, i} = Image.from_binary(binary)
+          {:ok, names} = Vimage.header_field_names(i)
+          Enum.count(names, &(&1 =~ ~r/exif|xmp/i))
+        end
+
+        {:ok, kept} = Image.write(image, :memory, suffix: ".jxl", strip_metadata: false)
+        {:ok, stripped} = Image.write(image, :memory, suffix: ".jxl", strip_metadata: true)
+
+        assert exif_count.(kept) > 0
+        assert exif_count.(stripped) == 0
+      end
+
+      test "rejects out-of-range JXL options", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:error, _} = Image.write(image, path, distance: -1)
+        assert {:error, _} = Image.write(image, path, distance: 99)
+        assert {:error, _} = Image.write(image, path, tier: 9)
+        assert {:error, _} = Image.write(image, path, bitdepth: 0)
+        assert {:error, _} = Image.write(image, path, effort: 11)
+      end
+
+      test "rejects :distance on a non-JXL format", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".png", basedir: dir)
+        assert {:error, _} = Image.write(image, path, distance: 1.0)
+      end
+
+      test "writes a .jxl via the jxl: option block", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert {:ok, _} = Image.write(image, path, jxl: [distance: 1.0])
+      end
+
+      test "write!/3 returns the image and raises on a bad option", %{image: image, dir: dir} do
+        path = Temp.path!(suffix: ".jxl", basedir: dir)
+        assert %Vimage{} = Image.write!(image, path, distance: 1.0)
+        assert_raise Image.Error, fn -> Image.write!(image, path, distance: 99) end
+      end
     end
   end
 end
