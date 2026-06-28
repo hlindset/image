@@ -5,6 +5,8 @@ if match?({:module, _module}, Code.ensure_compiled(Plug)) do
     import Plug.Test
     import Image.TestSupport
 
+    @jxl_supported Image.TestSupport.jxl_supported?()
+
     setup do
       Temp.track!()
       dir = Temp.mkdir!()
@@ -101,6 +103,22 @@ if match?({:module, _module}, Code.ensure_compiled(Plug)) do
                      {:halt, conn}
                  end
                end)
+    end
+
+    if @jxl_supported do
+      # JXL cannot encode to a non-seekable target, so writing to a Plug.Conn
+      # takes the buffer-then-emit branch. Assert the chunked bytes are valid JXL.
+      test "Stream a .jxl into a Plug.Conn produces valid JXL bytes" do
+        conn =
+          :get
+          |> conn("/")
+          |> Plug.Conn.send_chunked(200)
+
+        image = Image.open!(image_path("Kip_small.jpg"))
+
+        assert {:ok, conn} = Image.write(image, conn, suffix: ".jxl")
+        assert {:ok, _} = Image.from_binary(conn.resp_body)
+      end
     end
 
     if System.find_executable("minio") do
