@@ -5922,15 +5922,25 @@ defmodule Image do
   are unset, `nil`, `0` or `0.0`, the rotation will be done as a
   discrete operation in order to preserve source pixel values.
 
-  ## Notes
+  ## Displacement
 
-  The displacement parameters cause the image canvas to be
-  expanded and the image displaced, relative to the top left
-  corner of the image, by the amount specified.
+  The displacement options translate the image content within the output
+  canvas. They do not expand the canvas. The canvas size is determined
+  solely by `angle` (it is sized to contain the rotated source image),
+  and any content moved past an edge is clipped.
 
-  The rules defining how the image canvas is expanded
-  is not known to the author of `Image`. Experimentation will
-  be required if you explore these options.
+  * `:idx` and `:idy` shift in **input space**, before rotation, so the
+    shift is itself rotated by `angle`. For example, at a 90 degree
+    clockwise rotation an `:idx` shift moves content vertically rather
+    than horizontally. Positive values move content right and down in
+    input space.
+
+  * `:odx` and `:ody` shift the result in **output space**, after
+    rotation, by exactly `(odx, ody)` pixels regardless of `angle`.
+    Positive values move content right and down in output space.
+
+  At `angle: 0` both reduce to a plain translation and combine additively,
+  shifting content by `(idx + odx, idy + ody)`.
 
   ### Returns
 
@@ -5998,16 +6008,6 @@ defmodule Image do
 
   * `options` is a keyword list of options.
     See `Image.rotate/3`.
-
-  ## Notes
-
-  The displacement parameters cause the image canvas to be
-  expanded and the image displaced, relative to the top left
-  corner of the image, by the amount specified.
-
-  The rules defining how the image canvas is expanded
-  is not known to the author of `Image`. Experimentation will
-  be required if you explore these options.
 
   ### Returns
 
