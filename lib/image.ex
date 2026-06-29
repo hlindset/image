@@ -1525,8 +1525,8 @@ defmodule Image do
   * `:bitdepth` is an integer in the range `1..16`, and controls
     output bits per channel. Defaults to `8`.
 
-  * JXL also accepts the shared `:lossy`, `:strip_metadata`, and
-    `:icc_profile` options described above.
+  * JXL also accepts the shared `:lossy` and `:strip_metadata` options
+    described above.
 
   Because the JPEG XL encoder requires a seekable target, writing a
   `.jxl` to a stream or `t:Plug.Conn.t/0` buffers the whole encoded
