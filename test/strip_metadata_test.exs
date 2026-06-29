@@ -4,6 +4,8 @@ defmodule Image.StripMetadataTest do
 
   alias Vix.Vips.Image, as: Vimage
 
+  @jxl_supported Image.TestSupport.jxl_supported?()
+
   # Counts the number of EXIF/XMP metadata fields present on the image
   # at `path` after reloading it from disk.
   defp metadata_field_count(path) do
