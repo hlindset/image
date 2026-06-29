@@ -539,7 +539,7 @@ defmodule Image.Test do
         # :bitdepth is accepted and validated (its observable effect from an
         # 8-bit source is negligible, so this just guards the validation clause)
         bd = Temp.path!(suffix: ".jxl", basedir: dir)
-        assert {:ok, _} = Image.write(image, bd, bitdepth: 8)
+        assert {:ok, _} = Image.write(image, bd, bitdepth: 16)
         assert {:ok, _} = Image.open(bd)
       end
 
