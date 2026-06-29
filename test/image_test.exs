@@ -480,6 +480,13 @@ defmodule Image.Test do
         path = Temp.path!(suffix: ".jxl", basedir: dir)
         assert {:ok, _} = Image.write(image, path, effort: 3)
         assert {:ok, _} = Image.open(path)
+
+        # :effort is not monotonic in file size, so assert two efforts produce
+        # *different* output — proving the value reaches the encoder (and that
+        # the conform_effort/2 `.jxl` clause is exercised, not crashing).
+        {:ok, e1} = Image.write(image, :memory, suffix: ".jxl", effort: 1)
+        {:ok, e9} = Image.write(image, :memory, suffix: ".jxl", effort: 9)
+        assert e1 != e9
       end
 
       test "lossy: false produces lossless JXL (larger, pixel-identical to source)",
