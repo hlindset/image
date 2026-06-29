@@ -536,6 +536,8 @@ defmodule Image.Test do
         # Proves the value reaches the encoder, not just that it validates.
         assert File.stat!(t4).size > File.stat!(t0).size
 
+        # :bitdepth is accepted and validated (its observable effect from an
+        # 8-bit source is negligible, so this just guards the validation clause)
         bd = Temp.path!(suffix: ".jxl", basedir: dir)
         assert {:ok, _} = Image.write(image, bd, bitdepth: 8)
         assert {:ok, _} = Image.open(bd)
