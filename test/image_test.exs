@@ -476,7 +476,7 @@ defmodule Image.Test do
         assert {:ok, _} = Image.open(high)
       end
 
-      test "writes a .jxl with :effort", %{image: image, dir: dir} do
+      test "writes a .jxl with :effort (reaches the encoder)", %{image: image, dir: dir} do
         path = Temp.path!(suffix: ".jxl", basedir: dir)
         assert {:ok, _} = Image.write(image, path, effort: 3)
         assert {:ok, _} = Image.open(path)
