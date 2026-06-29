@@ -91,5 +91,16 @@ defmodule Image.StripMetadataTest do
 
       assert byte_size(stripped) < byte_size(kept)
     end
+
+    if @jxl_supported do
+      test "removes EXIF/XMP metadata from a JXL buffer" do
+        {:ok, image} = Image.open(image_path("Kip_small.jpg"), access: :random)
+
+        {:ok, kept} = Image.write(image, :memory, suffix: ".jxl", strip_metadata: false)
+        {:ok, stripped} = Image.write(image, :memory, suffix: ".jxl", strip_metadata: true)
+
+        assert byte_size(stripped) < byte_size(kept)
+      end
+    end
   end
 end
