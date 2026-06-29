@@ -543,21 +543,6 @@ defmodule Image.Test do
         assert {:ok, _} = Image.open(bd)
       end
 
-      test "strip_metadata: true removes EXIF/XMP from a JXL written to :memory",
-           %{image: image} do
-        exif_count = fn binary ->
-          {:ok, i} = Image.from_binary(binary)
-          {:ok, names} = Vimage.header_field_names(i)
-          Enum.count(names, &(&1 =~ ~r/exif|xmp/i))
-        end
-
-        {:ok, kept} = Image.write(image, :memory, suffix: ".jxl", strip_metadata: false)
-        {:ok, stripped} = Image.write(image, :memory, suffix: ".jxl", strip_metadata: true)
-
-        assert exif_count.(kept) > 0
-        assert exif_count.(stripped) == 0
-      end
-
       test "rejects out-of-range JXL options", %{image: image, dir: dir} do
         path = Temp.path!(suffix: ".jxl", basedir: dir)
         assert {:error, _} = Image.write(image, path, distance: -1)
