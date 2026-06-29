@@ -68,6 +68,16 @@ defmodule Image.StripMetadataTest do
       assert {:ok, _} = Image.write(image, stripped, minimize_file_size: true)
       assert metadata_field_count(stripped) == 0
     end
+
+    if @jxl_supported do
+      test "removes EXIF/XMP metadata from a JXL" do
+        {:ok, image} = Image.open(image_path("Kip_small.jpg"), access: :random)
+
+        stripped = out("min.jxl")
+        assert {:ok, _} = Image.write(image, stripped, minimize_file_size: true)
+        assert metadata_field_count(stripped) == 0
+      end
+    end
   end
 
   describe "strip_metadata when writing to :memory" do
