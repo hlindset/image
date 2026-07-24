@@ -42,30 +42,6 @@ defmodule Image.ErrorCoverageTest do
     end
   end
 
-  describe "exception/1 with tuples" do
-    test "{:enoent, path} with binary path" do
-      error = Error.exception({:enoent, "/tmp/missing.jpg"})
-      assert error.reason == :enoent
-      assert error.path == "/tmp/missing.jpg"
-      assert error.message =~ "was not found or could not be opened"
-      assert error.message =~ "/tmp/missing.jpg"
-    end
-
-    test "{:enoent, path} with non-binary path sets path to nil" do
-      error = Error.exception({:enoent, :not_a_path})
-      assert error.reason == :enoent
-      assert error.path == nil
-      assert error.message =~ "not_a_path"
-    end
-
-    test "{message, path} with binary message and path" do
-      error = Error.exception({"Cannot decode", "/tmp/a.jpg"})
-      assert error.reason == "Cannot decode"
-      assert error.path == "/tmp/a.jpg"
-      assert error.message == "Cannot decode: /tmp/a.jpg"
-    end
-  end
-
   describe "exception/1 with other shapes" do
     test "binary message" do
       error = Error.exception("free form message")
@@ -89,12 +65,6 @@ defmodule Image.ErrorCoverageTest do
       assert %Error{} = error
       assert error.reason == %{some: :map}
       assert error.message == "Image error: %{some: :map}"
-    end
-
-    test "a non-enoent tuple that is not {binary, binary} is wrapped" do
-      error = Error.exception({1, 2, 3})
-      assert %Error{} = error
-      assert error.message == "Image error: {1, 2, 3}"
     end
   end
 
@@ -205,6 +175,47 @@ defmodule Image.ErrorCoverageTest do
       assert wrapped.path == "/p"
       assert wrapped.value == 9
       assert wrapped.message == "Image error: %{oops: true}"
+    end
+  end
+
+  # The bang variants raise the same struct their non-bang counterparts
+  # return, rather than re-wrapping it into a nested :reason.
+  describe "bang functions raise the structured error" do
+    test "Image.open!/2 raises the same reason Image.open/2 returns" do
+      path = "/no/such/file.jpg"
+      {:error, returned} = Image.open(path)
+
+      raised = assert_raise Error, fn -> Image.open!(path) end
+
+      assert raised.reason == returned.reason
+      assert raised.reason == :enoent
+      assert raised.path == path
+      assert raised.message == "The image file #{inspect(path)} was not found or could not be opened"
+    end
+
+    test "Image.write!/3 to :memory raises the validation error unchanged" do
+      image = Image.new!(2, 2)
+      {:error, returned} = Image.write(image, :memory, suffix: ".bogus")
+
+      raised = assert_raise Error, fn -> Image.write!(image, :memory, suffix: ".bogus") end
+
+      assert raised.reason == returned.reason
+      assert raised.path == nil
+      refute match?(%Error{reason: {%Error{}, _}}, raised)
+    end
+
+    # Image data has no path, so nothing may end up in :path. Reporting
+    # the target here would mean reporting the whole image.
+    test "Image.open!/2 on invalid image data keeps the image out of the error" do
+      blob = :binary.copy(<<0xFF, 0xD8, 0xFF>>, 40)
+      {:error, returned} = Image.open(blob)
+
+      raised = assert_raise Error, fn -> Image.open!(blob) end
+
+      assert raised.reason == returned.reason
+      assert raised.path == nil
+      assert raised.operation == :open
+      refute String.contains?(raised.message, blob)
     end
   end
 end

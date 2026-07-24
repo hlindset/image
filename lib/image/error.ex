@@ -50,8 +50,6 @@ defmodule Image.Error do
 
       raise Image.Error, "free form message"
 
-      raise Image.Error, {:enoent, "/tmp/foo.jpg"}
-
   Or convert a raw `{:error, raw}` tuple coming from libvips with
   `Image.Error.wrap/2`:
 
@@ -88,24 +86,6 @@ defmodule Image.Error do
     fields = Keyword.take(opts, [:message, :reason, :operation, :path, :value])
     struct = struct!(__MODULE__, fields)
     %{struct | message: Keyword.get(opts, :message) || format_message(struct)}
-  end
-
-  # ---- raise Image.Error, {:enoent, path} ---------------------------------
-
-  def exception({:enoent, path}) do
-    %__MODULE__{
-      reason: :enoent,
-      path: to_path(path),
-      message: "The image file #{inspect(path)} was not found or could not be opened"
-    }
-  end
-
-  def exception({message, path}) when is_binary(message) and is_binary(path) do
-    %__MODULE__{
-      reason: message,
-      path: path,
-      message: "#{message}: #{path}"
-    }
   end
 
   # ---- raise Image.Error, "free form" -------------------------------------
@@ -251,9 +231,6 @@ defmodule Image.Error do
   end
 
   ## Internals --------------------------------------------------------------
-
-  defp to_path(path) when is_binary(path), do: path
-  defp to_path(_), do: nil
 
   defp format_message(%__MODULE__{} = error) do
     cond do

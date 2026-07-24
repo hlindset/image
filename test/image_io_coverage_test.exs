@@ -87,6 +87,14 @@ defmodule Image.IoCoverageTest do
 
       assert {:ok, %Vimage{}} = Image.open(stream)
     end
+
+    # A stream has no path, so the error reports the operation only.
+    test "returns a structured error when a stream is not an image" do
+      assert {:error, %Image.Error{} = error} = Image.open(File.stream!("mix.exs", 2048))
+      assert error.operation == :open
+      assert error.path == nil
+      assert is_binary(error.reason)
+    end
   end
 
   describe "Image.from_binary/2 and from_svg/2" do
@@ -237,6 +245,15 @@ defmodule Image.IoCoverageTest do
         Image.write!(image, path)
       end
     end
+
+    # The suffix is valid, so the failure comes from libvips rather than
+    # option validation and the error carries the path it failed on.
+    test "returns a structured error when the path cannot be written", %{image: image} do
+      assert {:error, %Image.Error{} = error} = Image.write(image, "/no/such/dir/out.png")
+      assert error.operation == :write
+      assert error.path == "/no/such/dir/out.png"
+      assert is_binary(error.reason)
+    end
   end
 
   describe "Image.write/3 to memory and streams" do
@@ -248,6 +265,17 @@ defmodule Image.IoCoverageTest do
     test "writes a jpeg to memory", %{image: image} do
       assert {:ok, <<0xFF, 0xD8, 0xFF, _::binary>>} =
                Image.write(image, :memory, suffix: ".jpg", quality: 50)
+    end
+
+    # 70_000 pixels exceeds the JPEG dimension limit, so the encoder fails
+    # after option validation has passed. There is no path to report when
+    # writing to memory.
+    test "returns a structured error when the encoder fails" do
+      wide = Image.new!(70_000, 2, color: :red)
+
+      assert {:error, %Image.Error{} = error} = Image.write(wide, :memory, suffix: ".jpg")
+      assert error.operation == :write
+      assert error.path == nil
     end
 
     test "writes a png to memory", %{image: image} do
