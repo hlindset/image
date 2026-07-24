@@ -152,6 +152,18 @@ defmodule Image.AnalysisCoverageTest do
     test "reduce_colors!/2 returns an image", %{image: image} do
       assert %Vimage{} = Image.reduce_colors!(image, colors: 2, key: Nx.Random.key(1))
     end
+
+    # A band count that `Image.to_colorspace/2` does not normalise reaches
+    # the clustering backend, which rejects it. That rejection has to
+    # arrive as the error tuple the spec promises, not a BadMapError.
+    test "k_means/2 returns an error for an image the backend cannot cluster", %{image: image} do
+      {:ok, band} = Vix.Vips.Operation.extract_band(image, 0)
+      {:ok, five_band} = Vix.Vips.Operation.bandjoin([image, band, band])
+      assert Image.bands(five_band) == 5
+
+      assert {:error, %Image.Error{} = error} = Image.k_means(five_band, num_clusters: 3)
+      assert error.message =~ "3- or 4-band image"
+    end
   end
 
   describe "Image.preview/1 and Image.p/1" do

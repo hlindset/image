@@ -2316,15 +2316,13 @@ defmodule Image do
   @spec chroma_mask(image :: Vimage.t(), options :: ChromaKey.chroma_key_options() | map()) ::
           {:ok, Vimage.t()} | {:error, error()}
 
-  def chroma_mask(image, options \\ [])
-
-  def chroma_mask(%Vimage{} = image, options) when is_list(options) do
+  def chroma_mask(%Vimage{} = image, options \\ []) do
     with {:ok, options} <- Options.ChromaKey.validate_options(image, options) do
-      chroma_mask(image, options)
+      do_chroma_mask(image, options)
     end
   end
 
-  def chroma_mask(%Vimage{} = image, %{color: color, threshold: threshold}) do
+  defp do_chroma_mask(%Vimage{} = image, %{color: color, threshold: threshold}) do
     alias Image.Math
 
     # The mask is computed from the color bands only so any alpha
@@ -2341,7 +2339,7 @@ defmodule Image do
     |> wrap(:ok)
   end
 
-  def chroma_mask(%Vimage{} = image, %{greater_than: greater_than, less_than: less_than}) do
+  defp do_chroma_mask(%Vimage{} = image, %{greater_than: greater_than, less_than: less_than}) do
     alias Image.Math
 
     with {:ok, greater} <- Math.greater_than(image, greater_than),
@@ -2491,7 +2489,7 @@ defmodule Image do
 
   def chroma_key(%Vimage{} = image, options \\ []) do
     with {:ok, options} <- Options.ChromaKey.validate_options(image, options),
-         {:ok, mask} <- chroma_mask(image, options),
+         {:ok, mask} <- do_chroma_mask(image, options),
          {:ok, flattened} <- flatten(image) do
       Operation.bandjoin([flattened, mask])
     end
@@ -8469,18 +8467,32 @@ defmodule Image do
   # Parse the Global Color Table from a GIF buffer produced by vips_gifsave.
   # See https://www.w3.org/Graphics/GIF/spec-gif89a.txt §18 (Logical Screen
   # Descriptor) for the header layout used here.
-  defp parse_gif_global_color_table(
-         <<"GIF", _version::binary-size(3), _w::16-little, _h::16-little, packed::8, _bg::8,
-           _aspect::8, rest::binary>>
-       ) do
+  @doc false
+  def parse_gif_global_color_table(
+        <<"GIF", _version::binary-size(3), _w::16-little, _h::16-little, packed::8, _bg::8,
+          _aspect::8, rest::binary>>
+      ) do
     gct_flag = Bitwise.bsr(packed, 7) |> Bitwise.band(1)
     gct_size_code = Bitwise.band(packed, 0x07)
 
     if gct_flag == 1 do
       gct_entries = Bitwise.bsl(1, gct_size_code + 1)
       gct_bytes = gct_entries * 3
-      <<gct::binary-size(^gct_bytes), _::binary>> = rest
-      {:ok, for(<<r::8, g::8, b::8 <- gct>>, do: {r, g, b})}
+
+      # The header declares the table size, so a truncated buffer
+      # declares more bytes than it carries. That has to be an error
+      # rather than a MatchError.
+      case rest do
+        <<gct::binary-size(^gct_bytes), _::binary>> ->
+          {:ok, for(<<r::8, g::8, b::8 <- gct>>, do: {r, g, b})}
+
+        _truncated ->
+          {:error,
+           %Image.Error{
+             message: "GIF buffer ends before its Global Color Table is complete",
+             reason: "GIF buffer ends before its Global Color Table is complete"
+           }}
+      end
     else
       {:error,
        %Image.Error{
@@ -8490,7 +8502,7 @@ defmodule Image do
     end
   end
 
-  defp parse_gif_global_color_table(_other) do
+  def parse_gif_global_color_table(_other) do
     {:error,
      %Image.Error{
        message: "Could not parse GIF buffer produced by libvips",
@@ -8835,17 +8847,34 @@ defmodule Image do
 
       with {:ok, srgb_image} <- Image.to_colorspace(image, :srgb),
            {:ok, target_image} <-
-             Image.new(1, 1, color: :black, interpretation: original_colorspace) do
-        k_means =
-          srgb_image
-          |> Image.Scholar.k_means(options)
-          |> Map.fetch!(:clusters)
-          |> Nx.to_list()
-          |> Enum.map(fn rgb -> Enum.map(rgb, &round/1) end)
-          |> Enum.sort()
-          |> Enum.map(fn rgb -> Pixel.to_pixel!(target_image, rgb) end)
+             Image.new(1, 1, color: :black, interpretation: original_colorspace),
+           %{clusters: clusters} <- Image.Scholar.k_means(srgb_image, options) do
+        k_means_pixels(clusters, target_image)
+      end
+    end
 
-        {:ok, k_means}
+    # `Image.Scholar.k_means/2` rejects images it cannot cluster, such as
+    # one carrying extra bands, so its result is matched rather than
+    # assumed to be a KMeans struct.
+    #
+    # Cluster centroids come back as floats in the sRGB domain and are
+    # encoded into the original interpretation one at a time, so an
+    # unsupported interpretation surfaces as an error rather than a
+    # raise from inside the pipeline.
+    defp k_means_pixels(clusters, target_image) do
+      clusters
+      |> Nx.to_list()
+      |> Enum.map(fn rgb -> Enum.map(rgb, &round/1) end)
+      |> Enum.sort()
+      |> Enum.reduce_while({:ok, []}, fn rgb, {:ok, acc} ->
+        case Pixel.to_pixel(target_image, rgb) do
+          {:ok, pixel} -> {:cont, {:ok, [pixel | acc]}}
+          {:error, reason} -> {:halt, {:error, Image.Error.wrap(reason, operation: :k_means)}}
+        end
+      end)
+      |> case do
+        {:ok, pixels} -> {:ok, Enum.reverse(pixels)}
+        {:error, _reason} = error -> error
       end
     end
 

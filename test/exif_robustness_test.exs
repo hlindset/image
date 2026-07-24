@@ -61,4 +61,24 @@ defmodule Image.ExifRobustnessTest do
       assert map_size(exif) > 0
     end
   end
+
+  describe "get_metadata/2" do
+    # Regression: the two "No such field" clauses had no fallback, so any
+    # other libvips error raised CaseClauseError instead of propagating.
+
+    test "returns the value for a header that is set" do
+      {:ok, image} = Image.open("./test/support/images/Kip_small.jpg")
+      assert {:ok, "jpegload"} = Exif.get_metadata(image, "vips-loader")
+    end
+
+    test "returns {:ok, nil} for an absent header" do
+      image = Image.new!(4, 4)
+      assert {:ok, nil} = Exif.get_metadata(image, :artist)
+    end
+
+    test "returns {:ok, nil} for a header name libvips does not know" do
+      image = Image.new!(4, 4)
+      assert {:ok, nil} = Exif.get_metadata(image, "totally-bogus-header")
+    end
+  end
 end

@@ -967,7 +967,7 @@ defmodule Image.Math do
           }
 
   def top_n(%Vimage{} = image, n \\ 10) when is_integer(n) do
-    {:ok, {v, opts}} = Operation.max(image, size: n)
+    {v, opts} = image_maximum(image, n)
     {v, opts[:x], opts[:y], Enum.zip(opts[:"x-array"], opts[:"y-array"])}
   end
 
@@ -1007,7 +1007,7 @@ defmodule Image.Math do
           }
 
   def bottom_n(%Vimage{} = image, n \\ 10) when is_integer(n) do
-    {:ok, {v, opts}} = Operation.min(image, size: n)
+    {v, opts} = image_minimum(image, n)
     {v, opts[:x], opts[:y], Enum.zip(opts[:"x-array"], opts[:"y-array"])}
   end
 
@@ -1071,7 +1071,7 @@ defmodule Image.Math do
   @dialyzer {:nowarn_function, maxpos: 2}
   def maxpos(%Vimage{} = image, n \\ 10) when is_integer(n) do
     band_format = Image.band_format(image)
-    {:ok, {max, opts}} = Operation.max(image, size: n)
+    {max, opts} = image_maximum(image, n)
 
     coordinates =
       Enum.zip_reduce([opts[:"out-array"], opts[:"x-array"], opts[:"y-array"]], [], fn
@@ -1129,7 +1129,7 @@ defmodule Image.Math do
 
   def minpos(%Vimage{} = image, n \\ 10) when is_integer(n) do
     band_format = Image.band_format(image)
-    {:ok, {min, opts}} = Operation.min(image, size: n)
+    {min, opts} = image_minimum(image, n)
 
     coordinates =
       Enum.zip_reduce([opts[:"out-array"], opts[:"x-array"], opts[:"y-array"]], [], fn
@@ -1156,5 +1156,23 @@ defmodule Image.Math do
 
   defp wrap(elem, atom) do
     {atom, elem}
+  end
+
+  # `top_n/2`, `bottom_n/2`, `maxpos/2` and `minpos/2` return a bare
+  # tuple rather than an `{:ok, _}` tuple, so a libvips failure has to
+  # raise. It is raised as an `Image.Error` carrying the underlying
+  # reason instead of escaping as a MatchError on the operation result.
+  defp image_maximum(image, n) do
+    case Operation.max(image, size: n) do
+      {:ok, {value, opts}} -> {value, opts}
+      {:error, reason} -> raise Image.Error, reason
+    end
+  end
+
+  defp image_minimum(image, n) do
+    case Operation.min(image, size: n) do
+      {:ok, {value, opts}} -> {value, opts}
+      {:error, reason} -> raise Image.Error, reason
+    end
   end
 end

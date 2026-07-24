@@ -74,12 +74,33 @@ defmodule Image.Exif do
 
   @doc false
   def get_metadata(image, header) do
-    case Vix.Vips.Image.header_value(image, field(header)) do
-      {:ok, value} -> {:ok, value}
-      {:error, "No such field"} -> {:ok, nil}
-      {:error, %Image.Error{reason: "No such field"}} -> {:ok, nil}
+    field = field(header)
+
+    case Vix.Vips.Image.header_value(image, field) do
+      {:ok, value} ->
+        {:ok, value}
+
+      {:error, reason} ->
+        if no_such_field?(reason) do
+          {:ok, nil}
+        else
+          {:error, Image.Error.wrap(reason, operation: :get_metadata, value: field)}
+        end
     end
   end
+
+  # libvips reports an absent header as "No such field", which is not a
+  # failure for a metadata read: the field is simply not set. The reason
+  # arrives either raw or already wrapped depending on the caller, and
+  # any other error has to propagate rather than fall through.
+  defp no_such_field?(%Image.Error{reason: reason, message: message}),
+    do: no_such_field?(reason) or no_such_field?(message)
+
+  defp no_such_field?(reason) when is_binary(reason),
+    do: reason =~ "No such field"
+
+  defp no_such_field?(_reason),
+    do: false
 
   @doc false
   def put_metadata(_mut_img, _field, nil), do: :ok

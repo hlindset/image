@@ -36,8 +36,11 @@ defmodule Image.Options.ChromaKey do
     end
   end
 
-  def validate_options(_image, %{} = options) do
-    {:ok, options}
+  # `Image.chroma_key/2` and `Image.chroma_mask/2` both document a map as
+  # an acceptable option form, so it is validated the same way a keyword
+  # list is rather than being returned untouched.
+  def validate_options(image, %{} = options) do
+    validate_options(image, Map.to_list(options))
   end
 
   defp validate_option({:color, :auto}, _image, options) do
@@ -96,12 +99,19 @@ defmodule Image.Options.ChromaKey do
     {:ok, options}
   end
 
+  # Unreachable while the defaults inject both :color and :threshold, so
+  # the clause above always matches. Kept as a guard against a change to
+  # `default_options/0`, and returning the same struct the other error
+  # paths in this module return rather than a bare string.
   defp select_strategy(options) do
-    {
-      :error,
-      "Invalid options #{inspect(options)}. Options need to have either :greater_than " <>
-        " and :less_than or :color and :threshold."
-    }
+    {:error,
+     %Image.Error{
+       reason: :invalid_option,
+       value: options,
+       message:
+         "Invalid options #{inspect(options)}. Options need to have either :greater_than " <>
+           "and :less_than or :color and :threshold."
+     }}
   end
 
   defp default_options do
