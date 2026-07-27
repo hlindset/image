@@ -49,10 +49,8 @@ defmodule Image.Write.Background.Test do
 
       # The specific resolution error from Image.BackgroundColor.resolve/2
       # is passed through rather than a generic invalid-option error.
-      assert {:error, %Image.Error{message: message}} =
+      assert {:error, %Image.Error{reason: :invalid_color, value: :not_a_real_color}} =
                Image.write(rgba, path, background: :not_a_real_color)
-
-      assert message =~ "Invalid background color :not_a_real_color"
     end
 
     test "the background survives a :memory write", %{rgba: rgba} do

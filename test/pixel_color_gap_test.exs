@@ -128,19 +128,15 @@ defmodule Image.PixelColorGapTest do
       alpha_image = Image.new!(2, 2, color: [10, 20, 30, 255])
       {:ok, yxy_alpha} = Operation.copy(alpha_image, interpretation: :VIPS_INTERPRETATION_YXY)
 
-      assert {:error, %Image.Error{message: message}} =
+      assert {:error, %Image.Error{reason: :unsupported_interpretation, value: :yxy}} =
                Image.BackgroundColor.resolve(yxy_alpha, :average)
-
-      assert message =~ "Could not construct alpha"
     end
 
     test "resolving an invalid color errors" do
       image = Image.new!(2, 2, color: :black)
 
-      assert {:error, %Image.Error{message: message}} =
+      assert {:error, %Image.Error{reason: :invalid_color, value: "no-such-color"}} =
                Image.BackgroundColor.resolve(image, "no-such-color")
-
-      assert message =~ "Invalid background color"
     end
   end
 

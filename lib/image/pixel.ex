@@ -502,12 +502,7 @@ defmodule Image.Pixel do
         {:ok, color}
 
       {:error, reason} ->
-        {:error,
-         %Image.Error{
-           reason: :invalid_color,
-           value: other,
-           message: "Invalid color #{inspect(other)}: #{describe(reason)}"
-         }}
+        {:error, %Image.Error{reason: :invalid_color, value: other, message: describe(reason)}}
     end
   end
 
@@ -521,13 +516,7 @@ defmodule Image.Pixel do
 
       {:error, reason} ->
         {:error,
-         %Image.Error{
-           reason: :color_conversion_error,
-           value: source,
-           message:
-             "Could not convert #{inspect(source.__struct__)} to #{inspect(target)}: " <>
-               describe(reason)
-         }}
+         %Image.Error{reason: :color_conversion_error, value: source, message: describe(reason)}}
     end
   end
 

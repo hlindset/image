@@ -138,14 +138,16 @@ defmodule Image.BackgroundColorTest do
       assert {:error, %Image.Error{} = error} =
                BackgroundColor.resolve(image, {:definitely_not_a_color, alpha: 0.5})
 
-      assert error.message =~ "Invalid background color :definitely_not_a_color"
+      assert error.reason == :invalid_color
+      assert error.value == :definitely_not_a_color
     end
 
     test "reports an invalid alpha value as an alpha error, not a color error" do
       image = solid([0, 0, 0, 255])
 
       assert {:error, %Image.Error{} = error} = BackgroundColor.resolve(image, {:red, alpha: 5.0})
-      assert error.message =~ "Invalid alpha 5.0"
+      assert error.reason == :invalid_transparency
+      assert error.value == 5.0
     end
 
     test "validates the alpha even on an image without an alpha band" do
@@ -154,7 +156,8 @@ defmodule Image.BackgroundColorTest do
       image = solid([0, 0, 0])
 
       assert {:error, %Image.Error{} = error} = BackgroundColor.resolve(image, {:red, alpha: 5.0})
-      assert error.message =~ "Invalid alpha 5.0"
+      assert error.reason == :invalid_transparency
+      assert error.value == 5.0
     end
 
     test "a misspelled or missing :alpha key is an error, not a raise" do
@@ -182,7 +185,8 @@ defmodule Image.BackgroundColorTest do
       assert {:error, %Image.Error{} = error} =
                BackgroundColor.resolve(image, :definitely_not_a_color)
 
-      assert error.message =~ "Invalid background color :definitely_not_a_color"
+      assert error.reason == :invalid_color
+      assert error.value == :definitely_not_a_color
     end
 
     test "preserves the underlying reason from Image.Pixel" do

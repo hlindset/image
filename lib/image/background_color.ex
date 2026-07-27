@@ -55,14 +55,10 @@ defmodule Image.BackgroundColor do
   """
   @spec resolve(Vimage.t(), spec()) :: {:ok, [number()]} | {:error, Image.Error.t()}
   def resolve(%Vimage{} = image, :average) do
-    case Image.average(image) do
-      # The average has no alpha band, so an opaque one is appended when the
-      # image has alpha.
-      {:ok, color} ->
-        put_alpha_band(image, color, :opaque)
-
-      {:error, reason} ->
-        {:error, error("Could not compute the image average", reason)}
+    # The average has no alpha band, so an opaque one is appended when the
+    # image has alpha.
+    with {:ok, color} <- Image.average(image) do
+      put_alpha_band(image, color, :opaque)
     end
   end
 
@@ -76,13 +72,7 @@ defmodule Image.BackgroundColor do
   end
 
   def resolve(%Vimage{} = image, color) do
-    case Pixel.to_pixel(image, color) do
-      {:ok, pixel} ->
-        {:ok, pixel}
-
-      {:error, reason} ->
-        {:error, error("Invalid background color #{inspect(color)}", reason)}
-    end
+    Pixel.to_pixel(image, color)
   end
 
   # `:alpha` is the only supported key in the wrapped form. A missing or
@@ -104,15 +94,8 @@ defmodule Image.BackgroundColor do
   # alpha is validated up front so an invalid value errors even on an image
   # without an alpha band.
   defp apply_alpha(image, pixel, alpha) do
-    with {:ok, _byte} <- validate_alpha(alpha) do
+    with {:ok, _byte} <- Pixel.transparency(alpha) do
       put_alpha_band(image, pixel, alpha)
-    end
-  end
-
-  defp validate_alpha(alpha) do
-    case Pixel.transparency(alpha) do
-      {:ok, byte} -> {:ok, byte}
-      {:error, reason} -> {:error, error("Invalid alpha #{inspect(alpha)}", reason)}
     end
   end
 
@@ -123,27 +106,12 @@ defmodule Image.BackgroundColor do
   # unchanged.
   defp put_alpha_band(image, pixel, alpha) do
     if Image.has_alpha?(image) do
-      case Pixel.to_pixel(image, :black, alpha: alpha) do
-        {:ok, scaled} ->
-          color_bands = Image.bands(image) - 1
-          {:ok, Enum.take(pixel, color_bands) ++ [List.last(scaled)]}
-
-        {:error, reason} ->
-          {:error, error("Could not construct alpha #{inspect(pixel)}", reason)}
+      with {:ok, scaled} <- Pixel.to_pixel(image, :black, alpha: alpha) do
+        color_bands = Image.bands(image) - 1
+        {:ok, Enum.take(pixel, color_bands) ++ [List.last(scaled)]}
       end
     else
       {:ok, pixel}
     end
-  end
-
-  # Every fallible call here reports failure as an `%Image.Error{}`, so
-  # carry its message and discriminator across rather than nesting the
-  # whole struct in the new error's `:reason`.
-  defp error(message, %Image.Error{} = reason) do
-    %Image.Error{
-      message: "#{message}: #{Exception.message(reason)}",
-      reason: reason.reason,
-      value: reason.value
-    }
   end
 end
