@@ -21,7 +21,9 @@ defmodule Image.PixelColorGapTest do
       image = Image.new!(2, 2, color: :black)
       {:ok, yxy} = Operation.copy(image, interpretation: :VIPS_INTERPRETATION_YXY)
 
-      assert {:error, message} = Pixel.to_pixel(yxy, [1, 2, 3])
+      assert {:error, %Image.Error{reason: :unsupported_interpretation, message: message}} =
+               Pixel.to_pixel(yxy, [1, 2, 3])
+
       assert message =~ ":yxy interpretation"
     end
 

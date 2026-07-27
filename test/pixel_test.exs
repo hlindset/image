@@ -245,10 +245,74 @@ defmodule Image.PixelTest do
     end
 
     test "out of range" do
-      assert {:error, _} = Pixel.transparency(-1)
-      assert {:error, _} = Pixel.transparency(256)
-      assert {:error, _} = Pixel.transparency(2.0)
-      assert {:error, _} = Pixel.transparency(:blue)
+      assert {:error, %Image.Error{reason: :invalid_transparency, value: -1}} =
+               Pixel.transparency(-1)
+
+      assert {:error, %Image.Error{reason: :invalid_transparency}} = Pixel.transparency(256)
+      assert {:error, %Image.Error{reason: :invalid_transparency}} = Pixel.transparency(2.0)
+      assert {:error, %Image.Error{reason: :invalid_transparency}} = Pixel.transparency(:blue)
+    end
+  end
+
+  describe "error contract" do
+    setup do
+      {:ok, image} = Image.new(2, 2, color: :black)
+      {:ok, image: image}
+    end
+
+    test "an unknown color name", %{image: image} do
+      assert {:error, %Image.Error{} = error} = Pixel.to_pixel(image, "no-such-color")
+      assert error.reason == :invalid_color
+      assert error.value == "no-such-color"
+      assert error.message =~ "no-such-color"
+    end
+
+    test "a list that is neither pre-encoded nor a valid color", %{image: image} do
+      assert {:error, %Image.Error{reason: :invalid_color, value: [1.0, 0, 0]}} =
+               Pixel.to_pixel(image, [1.0, 0, 0])
+    end
+
+    test "an unsupported interpretation", %{image: image} do
+      {:ok, yxy} = Vix.Vips.Operation.copy(image, interpretation: :VIPS_INTERPRETATION_YXY)
+
+      assert {:error, %Image.Error{} = error} = Pixel.to_pixel(yxy, :red)
+      assert error.reason == :unsupported_interpretation
+      assert error.value == :yxy
+      assert error.message =~ ":yxy interpretation"
+    end
+
+    test "an invalid :alpha option" do
+      {:ok, image} = Image.new(2, 2, color: [0, 0, 0, 255])
+
+      assert {:error, %Image.Error{reason: :invalid_transparency, value: :bogus}} =
+               Pixel.to_pixel(image, :red, alpha: :bogus)
+    end
+
+    test "an unknown color name on a mutable image", %{image: image} do
+      {:ok, _image} =
+        Image.mutate(image, fn mutable ->
+          send(self(), {:pixel, Pixel.to_pixel(mutable, "no-such-color")})
+          :ok
+        end)
+
+      assert_received {:pixel, {:error, %Image.Error{reason: :invalid_color}}}
+    end
+
+    test "to_srgb/1" do
+      assert {:error, %Image.Error{} = error} = Pixel.to_srgb("no-such-color")
+      assert error.reason == :invalid_color
+      assert error.value == "no-such-color"
+      assert error.message =~ "no-such-color"
+    end
+
+    test "the bang variants raise with the error's message", %{image: image} do
+      assert_raise Image.Error, ~r/no-such-color/, fn ->
+        Pixel.to_pixel!(image, "no-such-color")
+      end
+
+      assert_raise Image.Error, ~r/no-such-color/, fn ->
+        Pixel.to_srgb!("no-such-color")
+      end
     end
   end
 end

@@ -136,7 +136,14 @@ defmodule Image.BackgroundColor do
     end
   end
 
-  defp error(message, reason) do
-    %Image.Error{message: "#{message}: #{inspect(reason)}", reason: reason}
+  # Every fallible call here reports failure as an `%Image.Error{}`, so
+  # carry its message and discriminator across rather than nesting the
+  # whole struct in the new error's `:reason`.
+  defp error(message, %Image.Error{} = reason) do
+    %Image.Error{
+      message: "#{message}: #{Exception.message(reason)}",
+      reason: reason.reason,
+      value: reason.value
+    }
   end
 end

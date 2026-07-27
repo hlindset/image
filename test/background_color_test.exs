@@ -188,10 +188,11 @@ defmodule Image.BackgroundColorTest do
     test "preserves the underlying reason from Image.Pixel" do
       image = solid([0, 0, 0])
 
-      assert {:error, %Image.Error{reason: reason}} =
-               BackgroundColor.resolve(image, "not-a-hex")
+      assert {:error, %Image.Error{} = error} = BackgroundColor.resolve(image, "not-a-hex")
 
-      assert reason == %Color.UnknownColorNameError{name: "not-a-hex"}
+      assert error.reason == :invalid_color
+      assert error.value == "not-a-hex"
+      assert error.message =~ ~s(Unknown CSS color name "not-a-hex")
     end
   end
 end

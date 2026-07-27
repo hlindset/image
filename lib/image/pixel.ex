@@ -169,7 +169,7 @@ defmodule Image.Pixel do
           image :: Vimage.t() | MutableImage.t(),
           color :: t(),
           options :: Keyword.t()
-        ) :: {:ok, [number()]} | {:error, String.t()}
+        ) :: {:ok, [number()]} | {:error, Image.Error.t()}
   def to_pixel(image, color, options \\ [])
 
   # If the input is already a list of numbers whose length matches the
@@ -258,7 +258,7 @@ defmodule Image.Pixel do
 
     with {:ok, source_struct} <- resolve(color),
          {:ok, {target_module, encoder}} <- target_for(interpretation, color_bands),
-         {:ok, converted} <- Color.convert(source_struct, target_module, intent: intent),
+         {:ok, converted} <- convert(source_struct, target_module, intent: intent),
          {:ok, base_pixel} <- encode(encoder, converted),
          {:ok, alpha_value} <- alpha_for(encoder, explicit_alpha, source_struct, has_alpha) do
       {:ok, fit_bands(base_pixel, alpha_value, bands, has_alpha)}
@@ -368,11 +368,11 @@ defmodule Image.Pixel do
       {:ok, [255, 0, 0]}
 
   """
-  @spec to_srgb(color :: t()) :: {:ok, [0..255]} | {:error, Image.Error.t() | term()}
+  @spec to_srgb(color :: t()) :: {:ok, [0..255]} | {:error, Image.Error.t()}
   def to_srgb(color) do
     with {:ok, source_struct} <- resolve(color),
          {:ok, %Color.SRGB{r: r, g: g, b: b, alpha: alpha}} <-
-           Color.convert(source_struct, Color.SRGB) do
+           convert(source_struct, Color.SRGB) do
       base = [scale(r, 255), scale(g, 255), scale(b, 255)]
 
       if is_nil(alpha) do
@@ -496,7 +496,43 @@ defmodule Image.Pixel do
   defp resolve(float) when is_float(float) and float >= 0.0 and float <= 1.0,
     do: {:ok, %Color.SRGB{r: float, g: float, b: float, alpha: nil}}
 
-  defp resolve(other), do: Color.new(other)
+  defp resolve(other) do
+    case Color.new(other) do
+      {:ok, color} ->
+        {:ok, color}
+
+      {:error, reason} ->
+        {:error,
+         %Image.Error{
+           reason: :invalid_color,
+           value: other,
+           message: "Invalid color #{inspect(other)}: #{describe(reason)}"
+         }}
+    end
+  end
+
+  # The Color library returns exception structs in its error tuples.
+  # Restate them as `Image.Error` so the whole module keeps to the
+  # library-wide `{:error, %Image.Error{}}` contract.
+  defp convert(source, target, options \\ []) do
+    case Color.convert(source, target, options) do
+      {:ok, converted} ->
+        {:ok, converted}
+
+      {:error, reason} ->
+        {:error,
+         %Image.Error{
+           reason: :color_conversion_error,
+           value: source,
+           message:
+             "Could not convert #{inspect(source.__struct__)} to #{inspect(target)}: " <>
+               describe(reason)
+         }}
+    end
+  end
+
+  defp describe(reason) when is_exception(reason), do: Exception.message(reason)
+  defp describe(reason), do: inspect(reason)
 
   # When the image has only one color channel (greyscale), force a
   # luma encoder regardless of the nominal interpretation. libvips
@@ -516,8 +552,13 @@ defmodule Image.Pixel do
 
       :error ->
         {:error,
-         "Image.Pixel does not yet support the #{inspect(interpretation)} interpretation. " <>
-           "Pass a numeric pixel list directly, or open an issue."}
+         %Image.Error{
+           reason: :unsupported_interpretation,
+           value: interpretation,
+           message:
+             "Image.Pixel does not yet support the #{inspect(interpretation)} interpretation. " <>
+               "Pass a numeric pixel list directly, or open an issue."
+         }}
     end
   end
 
@@ -554,20 +595,25 @@ defmodule Image.Pixel do
   # We get here with a Color.SRGB struct (target_for/1 picks SRGB for
   # :bw and :grey16) so we have to do the SRGB → Lab hop ourselves.
   defp encode(:uchar_grey, %Color.SRGB{} = srgb) do
-    with {:ok, %Color.Lab{l: l}} <- Color.convert(srgb, Color.Lab) do
+    with {:ok, %Color.Lab{l: l}} <- convert(srgb, Color.Lab) do
       {:ok, [scale(l / 100.0, 255)]}
     end
   end
 
   defp encode(:ushort_grey, %Color.SRGB{} = srgb) do
-    with {:ok, %Color.Lab{l: l}} <- Color.convert(srgb, Color.Lab) do
+    with {:ok, %Color.Lab{l: l}} <- convert(srgb, Color.Lab) do
       {:ok, [scale(l / 100.0, 65_535)]}
     end
   end
 
   defp encode(encoder, struct) do
     {:error,
-     "Image.Pixel encoder #{inspect(encoder)} cannot encode a #{inspect(struct.__struct__)}"}
+     %Image.Error{
+       reason: :unsupported_encoding,
+       value: struct,
+       message:
+         "Image.Pixel encoder #{inspect(encoder)} cannot encode a #{inspect(struct.__struct__)}"
+     }}
   end
 
   defp scale(value, max) when is_number(value) do
