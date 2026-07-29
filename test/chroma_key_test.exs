@@ -91,6 +91,11 @@ defmodule Image.ChromaKey.Test do
     test "chroma_mask!/2 raises on an incomplete color range", %{image: image} do
       assert_raise Image.Error, fn -> Image.chroma_mask!(image, less_than: [50, 255, 50]) end
     end
+
+    test "the strategy is resolved before the option values are validated", %{image: image} do
+      assert {:error, %Image.Error{reason: :invalid_option, value: [:greater_than]}} =
+               Image.chroma_mask(image, greater_than: :not_a_color)
+    end
   end
 
   describe "unset strategy options" do

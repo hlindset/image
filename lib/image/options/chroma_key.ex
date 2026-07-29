@@ -35,17 +35,17 @@ defmodule Image.Options.ChromaKey do
     # not count as explicitly supplied, so it does not conflict with the other
     # strategy. Options with no default, like `:sigma`, keep rejecting nil.
     options = Enum.reject(options, &match?({key, nil} when key in @strategy_keys, &1))
-    explicit_keys = Keyword.keys(options)
-    options = Keyword.merge(default_options(), options)
 
-    case Enum.reduce_while(options, options, &validate_option(&1, image, &2)) do
-      {:error, value} ->
-        {:error, value}
+    with {:ok, strategy} <- select_strategy(Keyword.keys(options)) do
+      options = Keyword.merge(default_options(strategy), options)
 
-      options ->
-        options
-        |> Map.new()
-        |> select_strategy(explicit_keys)
+      case Enum.reduce_while(options, options, &validate_option(&1, image, &2)) do
+        {:error, value} ->
+          {:error, value}
+
+        options ->
+          {:ok, options |> Map.new() |> Map.put(:strategy, strategy)}
+      end
     end
   end
 
@@ -87,30 +87,17 @@ defmodule Image.Options.ChromaKey do
     }
   end
 
-  # Resolves which masking strategy the caller asked for and records it under
-  # `:strategy` so the mask calculation dispatches on an explicit discriminator
-  # rather than on which keys happen to be present.
-  defp select_strategy(options, explicit_keys) do
+  # The strategy depends only on which keys the caller set, so it is resolved
+  # before the option values are validated and before any defaults are applied.
+  defp select_strategy(explicit_keys) do
     threshold = Enum.filter(@threshold_keys, &(&1 in explicit_keys))
     range = Enum.filter(@range_keys, &(&1 in explicit_keys))
 
     case {threshold, range} do
-      {[_ | _], [_ | _]} ->
-        {:error, conflicting_strategies_error(threshold, range)}
-
-      {_, [single]} ->
-        {:error, incomplete_range_error(single)}
-
-      {[], @range_keys} ->
-        options =
-          options
-          |> Map.drop(@threshold_keys)
-          |> Map.put(:strategy, :range)
-
-        {:ok, options}
-
-      {_, []} ->
-        {:ok, Map.put(options, :strategy, :threshold)}
+      {[_ | _], [_ | _]} -> {:error, conflicting_strategies_error(threshold, range)}
+      {_, [single]} -> {:error, incomplete_range_error(single)}
+      {[], @range_keys} -> {:ok, :range}
+      {_, []} -> {:ok, :threshold}
     end
   end
 
@@ -135,7 +122,6 @@ defmodule Image.Options.ChromaKey do
     }
   end
 
-  defp default_options do
-    [color: :auto, threshold: 20]
-  end
+  defp default_options(:threshold), do: [color: :auto, threshold: 20]
+  defp default_options(:range), do: []
 end
