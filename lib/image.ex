@@ -2328,7 +2328,10 @@ defmodule Image do
 
   There are two masking strategies available: the
   thresholding strategy (default) and the color
-  range strategy.
+  range strategy. They are mutually exclusive:
+  combining options from both strategies, or
+  supplying only one of `:greater_than` and
+  `:less_than`, returns an error.
 
   #### Threshold strategy
 
@@ -2346,13 +2349,13 @@ defmodule Image do
 
   #### Color range strategy
 
-  * `:greater_than` is an RGB color which represents the upper
+  * `:greater_than` is an RGB color which represents the lower
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
      representing a CSS color name.
 
-  * `:less_than` is an RGB color which represents the lower
+  * `:less_than` is an RGB color which represents the upper
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
@@ -2382,7 +2385,7 @@ defmodule Image do
     end
   end
 
-  defp do_chroma_mask(%Vimage{} = image, %{color: color, threshold: threshold}) do
+  defp do_chroma_mask(%Vimage{} = image, %{strategy: :threshold, color: color, threshold: threshold}) do
     alias Image.Math
 
     # The mask is computed from the color bands only so any alpha
@@ -2401,7 +2404,11 @@ defmodule Image do
     end
   end
 
-  defp do_chroma_mask(%Vimage{} = image, %{greater_than: greater_than, less_than: less_than}) do
+  defp do_chroma_mask(%Vimage{} = image, %{
+         strategy: :range,
+         greater_than: greater_than,
+         less_than: less_than
+       }) do
     alias Image.Math
 
     with {:ok, greater} <- Math.greater_than(image, greater_than),
@@ -2410,6 +2417,17 @@ defmodule Image do
          {:ok, mask} <- Operation.bandbool(color_mask, :VIPS_OPERATION_BOOLEAN_AND) do
       Operation.invert(mask)
     end
+  end
+
+  defp do_chroma_mask(%Vimage{}, options) do
+    {:error,
+     %Image.Error{
+       reason: :invalid_option,
+       value: options,
+       message:
+         "Chroma masking options do not describe a masking strategy. " <>
+           "Got: #{inspect(options)}"
+     }}
   end
 
   defp maybe_calculate_color(image, :auto), do: chroma_color(image)
@@ -2433,7 +2451,10 @@ defmodule Image do
 
   There are two masking strategies available: the
   thresholding strategy (default) and the color
-  range strategy.
+  range strategy. They are mutually exclusive:
+  combining options from both strategies, or
+  supplying only one of `:greater_than` and
+  `:less_than`, returns an error.
 
   #### Threshold strategy
 
@@ -2451,13 +2472,13 @@ defmodule Image do
 
   #### Color range strategy
 
-  * `:greater_than` is an RGB color which represents the upper
+  * `:greater_than` is an RGB color which represents the lower
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
      representing a CSS color name.
 
-   * `:less_than` is an RGB color which represents the lower
+   * `:less_than` is an RGB color which represents the upper
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
@@ -2504,7 +2525,10 @@ defmodule Image do
 
   There are two masking strategies available: the
   thresholding strategy (default) and the color
-  range strategy.
+  range strategy. They are mutually exclusive:
+  combining options from both strategies, or
+  supplying only one of `:greater_than` and
+  `:less_than`, returns an error.
 
   #### Threshold strategy
 
@@ -2522,13 +2546,13 @@ defmodule Image do
 
   #### Color range strategy
 
-  * `:greater_than` is an RGB color which represents the upper
+  * `:greater_than` is an RGB color which represents the lower
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
      representing a CSS color name.
 
-  *  `:less_than` is an RGB color which represents the lower
+  *  `:less_than` is an RGB color which represents the upper
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
@@ -2579,7 +2603,10 @@ defmodule Image do
 
   There are two masking strategies available: the
   thresholding strategy (default) and the color
-  range strategy.
+  range strategy. They are mutually exclusive:
+  combining options from both strategies, or
+  supplying only one of `:greater_than` and
+  `:less_than`, returns an error.
 
   #### Threshold strategy
 
@@ -2597,13 +2624,13 @@ defmodule Image do
 
   #### Color range strategy
 
-  * `:greater_than` is an RGB color which represents the upper
+  * `:greater_than` is an RGB color which represents the lower
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
      representing a CSS color name.
 
-  *  `:less_than` is an RGB color which represents the lower
+  *  `:less_than` is an RGB color which represents the upper
      end of the color range to be masked. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
@@ -5861,7 +5888,10 @@ defmodule Image do
   There are two strategies available for selecting the
   color or color range to be replaced: the
   thresholding strategy (default) and the color
-  range strategy.
+  range strategy. They are mutually exclusive:
+  combining options from both strategies, or
+  supplying only one of `:greater_than` and
+  `:less_than`, returns an error.
 
   #### Threshold strategy
 
@@ -5879,13 +5909,13 @@ defmodule Image do
 
   #### Color range strategy
 
-  * `:greater_than` is an RGB color which represents the upper
+  * `:greater_than` is an RGB color which represents the lower
      end of the color range to be selected. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
      representing a CSS color name.
 
-  * `:less_than` is an RGB color which represents the lower
+  * `:less_than` is an RGB color which represents the upper
      end of the color range to be selected. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
@@ -5951,7 +5981,10 @@ defmodule Image do
   There are two strategies available for selecting the
   color or color range to be replaced: the
   thresholding strategy (default) and the color
-  range strategy.
+  range strategy. They are mutually exclusive:
+  combining options from both strategies, or
+  supplying only one of `:greater_than` and
+  `:less_than`, returns an error.
 
   #### Threshold strategy
 
@@ -5969,13 +6002,13 @@ defmodule Image do
 
   #### Color range strategy
 
-  * `:greater_than` is an RGB color which represents the upper
+  * `:greater_than` is an RGB color which represents the lower
      end of the color range to be selected. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom
      representing a CSS color name.
 
-  * `:less_than` is an RGB color which represents the lower
+  * `:less_than` is an RGB color which represents the upper
      end of the color range to be selected. The color can be an
      integer between `0..255`, a three-element list of
      integers representing an RGB color or an atom

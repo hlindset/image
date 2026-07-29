@@ -5,6 +5,12 @@ defmodule Image.Options.ChromaKey do
   """
   alias Image.Pixel
 
+  # The two masking strategies are mutually exclusive. Which one applies is
+  # decided from the keys the caller supplied, not from the merged options,
+  # since the defaults always materialise the threshold keys.
+  @threshold_keys [:color, :threshold]
+  @range_keys [:greater_than, :less_than]
+
   @typedoc """
   Options applicable to Image.chroma_key/2
 
@@ -24,6 +30,7 @@ defmodule Image.Options.ChromaKey do
 
   """
   def validate_options(image, options) when is_list(options) do
+    user_supplied_keys = Keyword.keys(options)
     options = Keyword.merge(default_options(), options)
 
     case Enum.reduce_while(options, options, &validate_option(&1, image, &2)) do
@@ -31,7 +38,9 @@ defmodule Image.Options.ChromaKey do
         {:error, value}
 
       options ->
-        select_strategy(Map.new(options))
+        options
+        |> Map.new()
+        |> select_strategy(user_supplied_keys)
     end
   end
 
@@ -73,29 +82,51 @@ defmodule Image.Options.ChromaKey do
     }
   end
 
-  defp select_strategy(%{greater_than: _, less_than: _} = options) do
-    options =
-      options
-      |> Map.delete(:color)
-      |> Map.delete(:threshold)
+  # Resolves which masking strategy the caller asked for and records it under
+  # `:strategy` so the mask calculation dispatches on an explicit discriminator
+  # rather than on which keys happen to be present.
+  defp select_strategy(options, user_supplied_keys) do
+    threshold = Enum.filter(@threshold_keys, &(&1 in user_supplied_keys))
+    range = Enum.filter(@range_keys, &(&1 in user_supplied_keys))
 
-    {:ok, options}
+    case {threshold, range} do
+      {[_ | _], [_ | _]} ->
+        {:error, conflicting_strategies_error(threshold, range)}
+
+      {_, [single]} ->
+        {:error, incomplete_range_error(single)}
+
+      {[], @range_keys} ->
+        options =
+          options
+          |> Map.drop(@threshold_keys)
+          |> Map.put(:strategy, :range)
+
+        {:ok, options}
+
+      {_, []} ->
+        {:ok, Map.put(options, :strategy, :threshold)}
+    end
   end
 
-  defp select_strategy(%{color: _, threshold: _} = options) do
-    options =
-      options
-      |> Map.delete(:greater_than)
-      |> Map.delete(:less_than)
-
-    {:ok, options}
+  defp conflicting_strategies_error(threshold, range) do
+    %Image.Error{
+      reason: :invalid_option,
+      value: threshold ++ range,
+      message:
+        "The threshold strategy options #{inspect(threshold)} cannot be combined with " <>
+          "the color range options #{inspect(range)}. The two masking strategies are " <>
+          "mutually exclusive, pass the options for one or the other."
+    }
   end
 
-  defp select_strategy(options) do
-    {
-      :error,
-      "Invalid options #{inspect(options)}. Options need to have either :greater_than " <>
-        " and :less_than or :color and :threshold."
+  defp incomplete_range_error(key) do
+    %Image.Error{
+      reason: :invalid_option,
+      value: [key],
+      message:
+        "The color range strategy requires both :greater_than and :less_than. " <>
+          "Only #{inspect(key)} was supplied."
     }
   end
 
