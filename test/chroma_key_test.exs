@@ -128,9 +128,25 @@ defmodule Image.ChromaKey.Test do
                Image.Options.ChromaKey.validate_options(image, greater_than: nil)
     end
 
-    test "a nil :sigma is still an invalid option", %{image: image} do
+    test "the nil strip does not swallow unknown options", %{image: image} do
       assert {:error, %Image.Error{reason: :invalid_option, value: {:sigma, nil}}} =
                Image.Options.ChromaKey.validate_options(image, sigma: nil)
+    end
+  end
+
+  describe "blur options" do
+    setup do
+      {:ok, %{image: Image.new!(10, 10, color: [0, 255, 0])}}
+    end
+
+    test ":sigma is not a chroma key option", %{image: image} do
+      assert {:error, %Image.Error{reason: :invalid_option, value: {:sigma, 2.0}}} =
+               Image.chroma_mask(image, sigma: 2.0)
+    end
+
+    test ":min_amplitude is not a chroma key option", %{image: image} do
+      assert {:error, %Image.Error{reason: :invalid_option, value: {:min_amplitude, 0.05}}} =
+               Image.chroma_mask(image, min_amplitude: 0.05)
     end
   end
 

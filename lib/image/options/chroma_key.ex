@@ -22,8 +22,6 @@ defmodule Image.Options.ChromaKey do
             | {:threshold, non_neg_integer()}
             | {:greater_than, Pixel.t()}
             | {:less_than, Pixel.t()}
-            | {:sigma, float()}
-            | {:min_amplitude, float()}
           ]
 
   @doc """
@@ -33,7 +31,7 @@ defmodule Image.Options.ChromaKey do
   def validate_options(image, options) when is_list(options) do
     # A nil strategy option means "unset". It falls back to the default and does
     # not count as explicitly supplied, so it does not conflict with the other
-    # strategy. Options with no default, like `:sigma`, keep rejecting nil.
+    # strategy. Any other key keeps rejecting nil as an invalid option.
     options = Enum.reject(options, &match?({key, nil} when key in @strategy_keys, &1))
 
     with {:ok, strategy} <- select_strategy(Keyword.keys(options)) do
@@ -64,15 +62,6 @@ defmodule Image.Options.ChromaKey do
   defp validate_option({:threshold, threshold}, _image, options)
        when is_integer(threshold) and threshold >= 0 do
     {:cont, options}
-  end
-
-  defp validate_option({:sigma, sigma}, _image, options) when is_number(sigma) and sigma > 0 do
-    {:cont, options}
-  end
-
-  defp validate_option({:min_amplitude, min_amplitude}, _image, options)
-       when is_float(min_amplitude) do
-    {:cont, Keyword.put(options, :min_amplitude, min_amplitude)}
   end
 
   defp validate_option(option, _image, _options) do
