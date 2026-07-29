@@ -35,7 +35,7 @@ defmodule Image.Options.ChromaKey do
     # not count as explicitly supplied, so it does not conflict with the other
     # strategy. Options with no default, like `:sigma`, keep rejecting nil.
     options = Enum.reject(options, &match?({key, nil} when key in @strategy_keys, &1))
-    user_supplied_keys = Keyword.keys(options)
+    explicit_keys = Keyword.keys(options)
     options = Keyword.merge(default_options(), options)
 
     case Enum.reduce_while(options, options, &validate_option(&1, image, &2)) do
@@ -45,7 +45,7 @@ defmodule Image.Options.ChromaKey do
       options ->
         options
         |> Map.new()
-        |> select_strategy(user_supplied_keys)
+        |> select_strategy(explicit_keys)
     end
   end
 
@@ -90,9 +90,9 @@ defmodule Image.Options.ChromaKey do
   # Resolves which masking strategy the caller asked for and records it under
   # `:strategy` so the mask calculation dispatches on an explicit discriminator
   # rather than on which keys happen to be present.
-  defp select_strategy(options, user_supplied_keys) do
-    threshold = Enum.filter(@threshold_keys, &(&1 in user_supplied_keys))
-    range = Enum.filter(@range_keys, &(&1 in user_supplied_keys))
+  defp select_strategy(options, explicit_keys) do
+    threshold = Enum.filter(@threshold_keys, &(&1 in explicit_keys))
+    range = Enum.filter(@range_keys, &(&1 in explicit_keys))
 
     case {threshold, range} do
       {[_ | _], [_ | _]} ->
