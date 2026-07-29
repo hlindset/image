@@ -93,6 +93,42 @@ defmodule Image.ChromaKey.Test do
     end
   end
 
+  describe "unset strategy options" do
+    setup do
+      {:ok, %{image: Image.new!(10, 10, color: [0, 255, 0])}}
+    end
+
+    test "a nil color range does not conflict with the threshold strategy", %{image: image} do
+      assert {:ok, %{strategy: :threshold, color: [0, 255, 0], threshold: 30}} =
+               Image.Options.ChromaKey.validate_options(image,
+                 color: [0, 255, 0],
+                 threshold: 30,
+                 greater_than: nil,
+                 less_than: nil
+               )
+    end
+
+    test "nil threshold options do not conflict with the color range strategy", %{image: image} do
+      assert {:ok, %{strategy: :range, greater_than: [0, 200, 0], less_than: [50, 255, 50]}} =
+               Image.Options.ChromaKey.validate_options(image,
+                 greater_than: [0, 200, 0],
+                 less_than: [50, 255, 50],
+                 color: nil,
+                 threshold: nil
+               )
+    end
+
+    test "a lone nil :greater_than is not an incomplete color range", %{image: image} do
+      assert {:ok, %{strategy: :threshold}} =
+               Image.Options.ChromaKey.validate_options(image, greater_than: nil)
+    end
+
+    test "a nil :sigma is still an invalid option", %{image: image} do
+      assert {:error, %Image.Error{reason: :invalid_option, value: {:sigma, nil}}} =
+               Image.Options.ChromaKey.validate_options(image, sigma: nil)
+    end
+  end
+
   describe "color range bounds" do
     test ":greater_than is the lower bound and :less_than the upper bound" do
       dark = Image.new!(1, 1, color: [0, 0, 0])

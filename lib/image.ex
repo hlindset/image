@@ -2331,7 +2331,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error.
+  `:less_than`, returns an error. A strategy
+  option set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -2419,17 +2420,6 @@ defmodule Image do
     end
   end
 
-  defp do_chroma_mask(%Vimage{}, options) do
-    {:error,
-     %Image.Error{
-       reason: :invalid_option,
-       value: options,
-       message:
-         "Chroma masking options do not describe a masking strategy. " <>
-           "Got: #{inspect(options)}"
-     }}
-  end
-
   defp maybe_calculate_color(image, :auto), do: chroma_color(image)
   defp maybe_calculate_color(_image, color), do: {:ok, color}
 
@@ -2454,7 +2444,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error.
+  `:less_than`, returns an error. A strategy
+  option set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -2528,7 +2519,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error.
+  `:less_than`, returns an error. A strategy
+  option set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -2606,7 +2598,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error.
+  `:less_than`, returns an error. A strategy
+  option set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -5891,7 +5884,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error.
+  `:less_than`, returns an error. A strategy
+  option set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -5984,7 +5978,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error.
+  `:less_than`, returns an error. A strategy
+  option set to `nil` is treated as unset.
 
   #### Threshold strategy
 

@@ -10,6 +10,7 @@ defmodule Image.Options.ChromaKey do
   # since the defaults always materialise the threshold keys.
   @threshold_keys [:color, :threshold]
   @range_keys [:greater_than, :less_than]
+  @strategy_keys @threshold_keys ++ @range_keys
 
   @typedoc """
   Options applicable to Image.chroma_key/2
@@ -30,6 +31,10 @@ defmodule Image.Options.ChromaKey do
 
   """
   def validate_options(image, options) when is_list(options) do
+    # A nil strategy option means "unset". It falls back to the default and does
+    # not count as explicitly supplied, so it does not conflict with the other
+    # strategy. Options with no default, like `:sigma`, keep rejecting nil.
+    options = Enum.reject(options, &match?({key, nil} when key in @strategy_keys, &1))
     user_supplied_keys = Keyword.keys(options)
     options = Keyword.merge(default_options(), options)
 
