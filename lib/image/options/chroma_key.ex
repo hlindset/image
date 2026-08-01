@@ -82,11 +82,13 @@ defmodule Image.Options.ChromaKey do
     threshold = Enum.filter(@threshold_keys, &(&1 in explicit_keys))
     range = Enum.filter(@range_keys, &(&1 in explicit_keys))
 
+    # The incomplete-range clause is last and matches any leftover shape, so the
+    # case stays total if @range_keys ever grows past two.
     case {threshold, range} do
       {[_ | _], [_ | _]} -> {:error, conflicting_strategies_error(threshold, range)}
-      {_, [single]} -> {:error, incomplete_range_error(single)}
       {[], @range_keys} -> {:ok, :range}
       {_, []} -> {:ok, :threshold}
+      {_, partial} -> {:error, incomplete_range_error(partial)}
     end
   end
 
@@ -101,13 +103,13 @@ defmodule Image.Options.ChromaKey do
     }
   end
 
-  defp incomplete_range_error(key) do
+  defp incomplete_range_error(supplied) do
     %Image.Error{
       reason: :invalid_option,
-      value: [key],
+      value: supplied,
       message:
         "The color range strategy requires both :greater_than and :less_than. " <>
-          "Only #{inspect(key)} was supplied."
+          "Only #{Enum.map_join(supplied, ", ", &inspect/1)} was supplied."
     }
   end
 

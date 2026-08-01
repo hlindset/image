@@ -2331,8 +2331,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error. A strategy
-  option set to `nil` is treated as unset.
+  `:less_than`, returns an error. Any of the four
+  options below set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -2449,8 +2449,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error. A strategy
-  option set to `nil` is treated as unset.
+  `:less_than`, returns an error. Any of the four
+  options below set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -2529,8 +2529,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error. A strategy
-  option set to `nil` is treated as unset.
+  `:less_than`, returns an error. Any of the four
+  options below set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -2613,8 +2613,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error. A strategy
-  option set to `nil` is treated as unset.
+  `:less_than`, returns an error. Any of the four
+  options below set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -5904,8 +5904,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error. A strategy
-  option set to `nil` is treated as unset.
+  `:less_than`, returns an error. Any of the four
+  options below set to `nil` is treated as unset.
 
   #### Threshold strategy
 
@@ -6003,8 +6003,8 @@ defmodule Image do
   range strategy. They are mutually exclusive:
   combining options from both strategies, or
   supplying only one of `:greater_than` and
-  `:less_than`, returns an error. A strategy
-  option set to `nil` is treated as unset.
+  `:less_than`, returns an error. Any of the four
+  options below set to `nil` is treated as unset.
 
   #### Threshold strategy
 
