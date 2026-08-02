@@ -5,12 +5,8 @@ defmodule Image.Options.ChromaKey do
   """
   alias Image.Pixel
 
-  # The two masking strategies are mutually exclusive. Which one applies is
-  # decided from the keys the caller supplied, not from the merged options,
-  # since the defaults always materialise the threshold keys.
   @threshold_keys [:color, :threshold]
   @range_keys [:greater_than, :less_than]
-  @strategy_keys @threshold_keys ++ @range_keys
 
   @typedoc """
   Options applicable to Image.chroma_key/2
@@ -29,11 +25,6 @@ defmodule Image.Options.ChromaKey do
 
   """
   def validate_options(image, options) when is_list(options) do
-    # A nil strategy option means "unset". It falls back to the default and does
-    # not count as explicitly supplied, so it does not conflict with the other
-    # strategy. Any other key keeps rejecting nil as an invalid option.
-    options = Enum.reject(options, &match?({key, nil} when key in @strategy_keys, &1))
-
     with {:ok, strategy} <- select_strategy(Keyword.keys(options)) do
       options = Keyword.merge(default_options(strategy), options)
 
