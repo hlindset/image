@@ -8907,11 +8907,10 @@ defmodule Image do
 
       with {:ok, srgb_image} <- Image.to_colorspace(image, :srgb),
            {:ok, target_image} <-
-             Image.new(1, 1, color: :black, interpretation: original_colorspace) do
+             Image.new(1, 1, color: :black, interpretation: original_colorspace),
+           {:ok, model} <- Image.Scholar.k_means(srgb_image, options) do
         k_means =
-          srgb_image
-          |> Image.Scholar.k_means(options)
-          |> Map.fetch!(:clusters)
+          model.clusters
           |> Nx.to_list()
           |> Enum.map(fn rgb -> Enum.map(rgb, &round/1) end)
           |> Enum.sort()
@@ -9084,16 +9083,15 @@ defmodule Image do
           |> to_nx!()
           |> Nx.reshape({height * width, bands})
 
-        model =
-          Scholar.Cluster.KMeans.fit(nx_reshaped, options)
+        with {:ok, model} <- Image.Scholar.fit(nx_reshaped, options) do
+          indicies =
+            Nx.as_type(model.labels, :u8)
 
-        indicies =
-          Nx.as_type(model.labels, :u8)
-
-        model.clusters
-        |> Nx.take(indicies)
-        |> Nx.reshape({height, width, bands})
-        |> Image.from_nx()
+          model.clusters
+          |> Nx.take(indicies)
+          |> Nx.reshape({height, width, bands})
+          |> Image.from_nx()
+        end
       end
     end
 

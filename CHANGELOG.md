@@ -28,6 +28,10 @@
 
 * **Breaking:** `Image.drop_shadow/2` returns `{:error, %Image.Error{}}` for a non-numeric `:sigma` instead of raising `ArithmeticError`, and its `:opacity` and `:sigma` errors now carry `reason: :invalid_option` with `value` set to `{:opacity, value}` or `{:sigma, value}`. Validation still covers only `:opacity` and `:sigma`. `:dx`, `:dy` and unknown options remain unvalidated pending a move to an `Image.Options.DropShadow` module. ([#221](https://github.com/elixir-image/image/pull/221))
 
+* **Breaking:** `Image.Scholar.k_means/2` returns `{:ok, model}` instead of a bare fitted `Scholar.Cluster.KMeans` on success, matching `Image.Scholar.unique_colors/1` and the rest of the library. ([#223](https://github.com/elixir-image/image/pull/223))
+
+* **Breaking:** `Image.k_means/2` and `Image.reduce_colors/2` return `{:error, %Image.Error{reason: :invalid_option}}` for an invalid or unknown option instead of raising `NimbleOptions.ValidationError` from `Scholar.Cluster.KMeans.fit/2`. `Image.k_means!/2` and `Image.reduce_colors!/2` raise `Image.Error` rather than the NimbleOptions exception. `value` is set to `{key, value}`. The option schema is still Scholar's, so the message text is unchanged. ([#223](https://github.com/elixir-image/image/pull/223))
+
 * `Image.affine/3` and `Image.rotate/3` now premultiply alpha explicitly only when the background is non-opaque, since libvips handles the other cases itself. `Image.shear/4` and `Image.translate/4` inherit this. ([#217](https://github.com/elixir-image/image/pull/217))
 
 ### Fixed
@@ -35,6 +39,8 @@
 * Fix `Image.warp_perspective/4`, `Image.straighten_perspective/3` and `Image.map/3` reproducing non-opaque backgrounds incorrectly. ([#216](https://github.com/elixir-image/image/pull/216))
 
 * Fix `Image.chroma_mask/2` and `Image.find_trim/2` using an error tuple as a pixel when an `:auto` color lookup failed. They now propagate the error. ([#219](https://github.com/elixir-image/image/pull/219))
+
+* Fix `Image.k_means/2` using an error tuple as a fitted model when `Image.Scholar.k_means/2` fails, raising `BadMapError`. It now propagates the error. The band and band format guards in `Image.Scholar.unique_colors/1` are not reachable through `Image.k_means/2`, which converts to 8-bit sRGB first, so this path was latent. ([#223](https://github.com/elixir-image/image/pull/223))
 
 * Fix `Image.open!/2` putting the whole image into the error's `:path` and interpolating it into `:message`. ([#218](https://github.com/elixir-image/image/pull/218))
 

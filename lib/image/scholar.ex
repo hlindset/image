@@ -106,6 +106,24 @@ if match?({:module, _module}, Code.ensure_compiled(Scholar.Cluster.KMeans)) and
       %Image.Error{message: message, reason: message}
     end
 
+    # Scholar.Cluster.KMeans.fit/2 validates its options with
+    # NimbleOptions.validate!/2 which raises on an invalid or unknown
+    # option. Image returns {:error, %Image.Error{}} for invalid
+    # options so the exception is translated here, at the single
+    # boundary between Image and Scholar.
+    @doc false
+    def fit(samples, options) do
+      {:ok, Scholar.Cluster.KMeans.fit(samples, options)}
+    rescue
+      exception in NimbleOptions.ValidationError ->
+        {:error,
+         %Image.Error{
+           reason: :invalid_option,
+           value: {exception.key, exception.value},
+           message: Exception.message(exception)
+         }}
+    end
+
     @doc """
     Clusters the unique colors of an image using the K-means
     algorithm.
@@ -120,7 +138,8 @@ if match?({:module, _module}, Code.ensure_compiled(Scholar.Cluster.KMeans)) and
 
     ### Returns
 
-    * A fitted `Scholar.Cluster.KMeans` model or
+    * `{:ok, model}` where `model` is a fitted
+      `Scholar.Cluster.KMeans` or
 
     * `{:error, reason}`.
 
@@ -145,7 +164,7 @@ if match?({:module, _module}, Code.ensure_compiled(Scholar.Cluster.KMeans)) and
               options
           end
 
-        Scholar.Cluster.KMeans.fit(colors, options)
+        fit(colors, options)
       end
     end
 
