@@ -107,4 +107,22 @@ defmodule Image.Embed.Test do
     # {:ok, _image} = Image.write(embedded, validate_path)
     assert_images_equal(embedded, validate_path)
   end
+
+  # A 200x100 image into a 100x100 canvas: only the x offset can fail, so the
+  # reported dimension does not depend on option ordering.
+  test "Image.embed/4 returns a structured error when the offset cannot fit the image" do
+    image = Image.new!(200, 100, color: :red)
+
+    assert {:error, %Image.Error{reason: :invalid_option, value: {:x, 0}}} =
+             Image.embed(image, 100, 100, x: 0, y: 0)
+  end
+
+  test "Image.embed/4 returns a structured error when the offset normalizes below zero" do
+    image = Image.new!(200, 100, color: :red)
+
+    assert {:error, %Image.Error{reason: :invalid_option, value: {:x, x}}} =
+             Image.embed(image, 100, 100, x: -250, y: 0)
+
+    assert x < 0
+  end
 end

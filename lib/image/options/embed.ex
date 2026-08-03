@@ -201,16 +201,22 @@ defmodule Image.Options.Embed do
     ]
   end
 
-  defp offset_error(_dim, value) when value < 0 do
+  defp offset_error(dim, value) when value < 0 do
     {:error,
      %Image.Error{
-       message: "The canvas image must be larger than the image being embedded in it",
-       reason: "The canvas image must be larger than the image being embedded in it"
+       reason: :invalid_option,
+       value: {dim, value},
+       message: "The canvas image must be larger than the image being embedded in it"
      }}
   end
 
   defp offset_error(dim, value) do
     {:error,
-     "#{inspect(dim)} offset #{inspect(value)} cannot fit the image inside the embedded image"}
+     %Image.Error{
+       reason: :invalid_option,
+       value: {dim, value},
+       message:
+         "#{inspect(dim)} offset #{inspect(value)} cannot fit the image inside the embedded image"
+     }}
   end
 end
