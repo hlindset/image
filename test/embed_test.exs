@@ -107,4 +107,37 @@ defmodule Image.Embed.Test do
     # {:ok, _image} = Image.write(embedded, validate_path)
     assert_images_equal(embedded, validate_path)
   end
+
+  test "Image.embed/4 accepts a negative offset as an offset from the far edge" do
+    image = Image.new!(200, 200, color: :red)
+
+    assert {:ok, %{x: 99}} = Image.Options.Embed.validate_options(image, 300, 300, x: -1, y: 0)
+    assert {:ok, %{y: 99}} = Image.Options.Embed.validate_options(image, 300, 300, x: 0, y: -1)
+  end
+
+  # `:center` is this module's original value for the vertical center, which
+  # is translated to `:middle` for `Image.Position`
+  test "Image.embed/4 accepts :center on the y axis" do
+    image = Image.new!(200, 200, color: :red)
+
+    assert {:ok, %{y: 50}} =
+             Image.Options.Embed.validate_options(image, 300, 300, x: 0, y: :center)
+
+    assert {:ok, %{y: 60}} =
+             Image.Options.Embed.validate_options(image, 300, 300, x: 0, y: {:center, 10})
+  end
+
+  test "Image.embed/4 returns a structured error for an offset past the far edge" do
+    image = Image.new!(500, 100, color: :red)
+
+    assert {:error, %Image.Error{reason: :invalid_option, value: {:x, 150}}} =
+             Image.embed(image, 100, 100, x: 150, y: 0)
+  end
+
+  test "Image.embed/4 returns a structured error for an offset before the origin" do
+    image = Image.new!(200, 100, color: :red)
+
+    assert {:error, %Image.Error{reason: :invalid_option, value: {:x, _}}} =
+             Image.embed(image, 100, 100, x: -350, y: 0)
+  end
 end

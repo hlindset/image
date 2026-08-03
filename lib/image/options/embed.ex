@@ -3,7 +3,7 @@ defmodule Image.Options.Embed do
   Options and option validation for `Image.embed/4`.
 
   """
-  alias Image.BackgroundColor
+  alias Image.{BackgroundColor, Position}
 
   @typedoc """
   Options applicable to `Image.embed/4`.
@@ -12,8 +12,8 @@ defmodule Image.Options.Embed do
   @type embed_option ::
           {:background, BackgroundColor.spec() | nil}
           | {:extend_mode, extend_mode()}
-          | {:x, non_neg_integer() | :center}
-          | {:y, non_neg_integer() | :center}
+          | {:x, Position.x_spec()}
+          | {:y, Position.y_spec()}
 
   @typedoc """
   How the generated border pixels are produced.
@@ -106,40 +106,44 @@ defmodule Image.Options.Embed do
     {:cont, Keyword.put(options, :extend_mode, :VIPS_EXTEND_BACKGROUND)}
   end
 
-  defp validate_option({:x, :center}, image, width, height, options) do
-    x = trunc((width - Image.width(image)) / 2)
-    validate_option({:x, x}, image, width, height, options)
+  defp validate_option({:x, x}, image, width, _height, options) do
+    place(:x, normalize(:x, x), Image.width(image), width, options)
   end
 
-  defp validate_option({:y, :center}, image, width, height, options) do
-    y = trunc((height - Image.height(image)) / 2)
-    validate_option({:y, y}, image, width, height, options)
-  end
-
-  defp validate_option({:x, x}, image, width, _height, options) when is_integer(x) do
-    x = normalize_dim(x, width)
-
-    if x + width >= Image.width(image) do
-      options = Keyword.put(options, :x, x)
-      {:cont, options}
-    else
-      {:halt, offset_error(:x, x)}
-    end
-  end
-
-  defp validate_option({:y, y}, image, _width, height, options) when is_integer(y) do
-    y = normalize_dim(y, height)
-
-    if y + height >= Image.height(image) do
-      options = Keyword.put(options, :y, y)
-      {:cont, options}
-    else
-      {:halt, offset_error(:y, y)}
-    end
+  defp validate_option({:y, y}, image, _width, height, options) do
+    place(:y, normalize(:y, y), Image.height(image), height, options)
   end
 
   defp validate_option(option, _image, _width, _height, _options) do
     {:halt, {:error, invalid_option(option)}}
+  end
+
+  # Normalize options to something `Image.Position` understands.
+  #
+  # * :center was the documented default for :y. Normalize to :middle.
+  # * A negative offset was documented as pixels from the far edge. Normalize
+  #   to `{:right | :bottom, n}`.
+  defp normalize(:y, :center), do: :middle
+  defp normalize(:y, {:center, offset}), do: {:middle, offset}
+  defp normalize(:x, offset) when is_integer(offset) and offset < 0, do: {:right, -offset}
+  defp normalize(:y, offset) when is_integer(offset) and offset < 0, do: {:bottom, -offset}
+  defp normalize(_axis, spec), do: spec
+
+  defp place(axis, spec, image_dim, canvas_dim, options) do
+    with {:ok, offset} <- Position.resolve(axis, spec, image_dim, canvas_dim),
+         :ok <- check_overlap(axis, offset, image_dim, canvas_dim) do
+      {:cont, Keyword.put(options, axis, offset)}
+    else
+      {:error, reason} -> {:halt, {:error, reason}}
+    end
+  end
+
+  defp check_overlap(axis, offset, image_dim, canvas_dim) do
+    if offset + image_dim > 0 and offset < canvas_dim do
+      :ok
+    else
+      offset_error(axis, offset, image_dim, canvas_dim)
+    end
   end
 
   defp invalid_option(option) do
@@ -190,27 +194,29 @@ defmodule Image.Options.Embed do
      }}
   end
 
-  @doc false
-  def normalize_dim(a, _max) when a >= 0, do: a
-  def normalize_dim(a, max) when a < 0, do: max + a
-
   defp default_options do
-    [
-      x: :center,
-      y: :center
-    ]
+    [x: :center, y: :middle]
   end
 
-  defp offset_error(_dim, value) when value < 0 do
+  defp offset_error(axis, offset, image_dim, canvas_dim) when offset + image_dim <= 0 do
     {:error,
      %Image.Error{
-       message: "The canvas image must be larger than the image being embedded in it",
-       reason: "The canvas image must be larger than the image being embedded in it"
+       reason: :invalid_option,
+       value: {axis, offset},
+       message:
+         "#{inspect(axis)} offset #{inspect(offset)} places the image entirely before the " <>
+           "canvas. The image is #{image_dim}px and the canvas #{canvas_dim}px on this axis"
      }}
   end
 
-  defp offset_error(dim, value) do
+  defp offset_error(axis, offset, image_dim, canvas_dim) do
     {:error,
-     "#{inspect(dim)} offset #{inspect(value)} cannot fit the image inside the embedded image"}
+     %Image.Error{
+       reason: :invalid_option,
+       value: {axis, offset},
+       message:
+         "#{inspect(axis)} offset #{inspect(offset)} places the image entirely past the " <>
+           "canvas. The image is #{image_dim}px and the canvas #{canvas_dim}px on this axis"
+     }}
   end
 end

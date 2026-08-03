@@ -5729,21 +5729,28 @@ defmodule Image do
 
   ### Options
 
-  * `:x` is the x-offset into the canvas image
-    where `image` will be embedded. The value may be
-    a positive integer indicating a 0-based offset from
-    the left of the canvas or a negative integer indicating
-    a 1-based offset from the right side of the image.
-    It may also be `:center` (the default) in which case the
-    image will be centered horizontally within the canvas.
+  * `:x` places `image` horizontally within the canvas. It
+    may be a non-negative integer offset from the left edge
+    of the canvas, one of `:left`, `:center` (the default)
+    or `:right` to place `image` flush against that edge or
+    centered. A `{tag, offset}` tuple can alsy be used to
+    offset the `image` inward from the named edge. E.g.
+    `{:right, 0}` is flush right and `{:right, 10}` leaves
+    a 10 pixel gap. A negative offset places `image` beyond
+    the edge.
 
-  * `:y` is the y-offset into the canvas image
-    where `image` will be embedded. The value may be
-    a positive integer indicating a 0-based offset from
-    the top of the canvas or a negative integer indicating
-    a 1-based offset from the bottom of the image.
-    It may also be `:center` (the default) in which case the
-    image will be centered vertically within the canvas.
+  * `:y` places `image` vertically, taking the same forms
+    with `:top`, `:middle` (default) and `:bottom`.
+
+  > #### Partial overlap {: .info}
+  >
+  > `image` does not have to fit within the canvas. If it
+  > extends past an edge it is clipped, and the remainder of
+  > the canvas is filled as usual. This makes `Image.embed/4`
+  > a padded crop: with a source larger than the canvas it
+  > extracts a region, padding any part of that region which
+  > falls outside the source. Only a placement with no overlap
+  > at all is an error.
 
   * `:background` defines the color that fills the generated border
     pixels. This can be specified as a single integer which will
