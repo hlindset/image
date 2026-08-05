@@ -1,6 +1,8 @@
 defmodule Image.ErrorCoverageTest do
   use ExUnit.Case, async: true
 
+  doctest Image.Error
+
   alias Image.Error
 
   describe "exception/1 with a keyword list" do
@@ -150,6 +152,27 @@ defmodule Image.ErrorCoverageTest do
 
     test "an exception speaks for itself" do
       wrapped = Error.wrap(%Color.UnknownColorNameError{name: "nope"})
+      assert wrapped.message == ~s(Unknown CSS color name "nope")
+    end
+
+    # An unclassified exception is kept whole so a caller can match on the
+    # fields that distinguish one failure from another. Reducing it to a
+    # module would make :out_of_range and :mixed_types indistinguishable.
+    test "an exception is kept whole so its fields stay matchable" do
+      raw = %Color.InvalidComponentError{
+        space: "sRGB",
+        value: [300, 0, 0],
+        range: {0, 255},
+        reason: :out_of_range
+      }
+
+      assert %Color.InvalidComponentError{reason: :out_of_range, range: {0, 255}} =
+               Error.wrap(raw).reason
+    end
+
+    test "an explicit :reason still wins over the exception" do
+      wrapped = Error.wrap(%Color.UnknownColorNameError{name: "nope"}, reason: :invalid_color)
+      assert wrapped.reason == :invalid_color
       assert wrapped.message == ~s(Unknown CSS color name "nope")
     end
 

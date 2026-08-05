@@ -72,7 +72,9 @@ This is the changelog for Image version 0.72.0 released on July 22nd, 2026.  For
 
 * **Breaking:** `Image.BackgroundColor.resolve/2` no longer prefixes errors from `Image.Pixel` with `"Invalid background color ..."`, `"Invalid alpha ..."` or `"Could not construct alpha ..."`. The structured reason and `:value` now carry that information, so match on `:reason` rather than the message.
 
-* `Image.Error.wrap/2` describes an exception passed as the raw error with its own `Exception.message/1`, framed with `:operation` and `:path` the same way a libvips message string is. This was already documented but not implemented; such errors previously rendered as `"Image error: %Some.Error{...}"`.
+* `Image.Error.wrap/2` describes an exception passed as the raw error with its own `Exception.message/1`, framed with `:operation` and `:path` the same way a libvips message string is. This was already documented but not implemented; such errors previously rendered as `"Image error: %Some.Error{...}"`. `t:Image.Error.t/0` now types `:reason` as `atom() | {atom(), any()} | String.t() | Exception.t() | nil`. An exception is kept whole rather than reduced to a label, so the fields that distinguish one failure from another stay matchable: `%Color.InvalidComponentError{reason: :out_of_range, range: {0, 255}}` and `%Color.InvalidComponentError{reason: :mixed_types}` remain distinguishable without scraping `:message`.
+
+* **Breaking:** An overriding `:reason` passed to `Image.Error.wrap/2` no longer replaces the message derived from the raw error. The override reclassifies the error while the raw error continues to explain it, so `Image.Error.wrap(:enoent, reason: :custom, path: path)` keeps the `:enoent` message rather than rendering as `"custom"`. Previously the raw error was discarded entirely whenever `:reason` was given.
 
 ### Removed
 

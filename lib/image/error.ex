@@ -14,7 +14,9 @@ defmodule Image.Error do
   * `:reason` — a structured discriminator: an atom (`:enoent`,
     `:invalid_option`, `:unsupported_format`, …), a `{:atom, value}`
     tuple for parameterised errors, or a binary for free-form
-    libvips errors that don't yet have a structured form.
+    libvips errors that don't yet have a structured form. An error
+    wrapped from another library keeps that library's exception
+    struct, so its own fields stay matchable.
 
   * `:operation` — the high-level `Image` function that failed
     (e.g. `:open`, `:write`, `:resize`, `:draw_rect`), or `nil` if
@@ -66,7 +68,7 @@ defmodule Image.Error do
   """
   @type t :: %__MODULE__{
           message: String.t(),
-          reason: atom() | {atom(), any()} | String.t() | nil,
+          reason: atom() | {atom(), any()} | String.t() | Exception.t() | nil,
           operation: atom() | nil,
           path: Path.t() | nil,
           value: any() | nil
@@ -132,11 +134,16 @@ defmodule Image.Error do
 
   * `raw` is the inner value of the error tuple — typically a
     string from libvips, an atom from `File.*`, or another struct
-    that already implements `Exception.message/1`.
+    that already implements `Exception.message/1`. An exception
+    supplies the message and is kept whole as the reason, so a
+    caller can match on its fields.
 
   * `context` is a keyword list of context fields to attach. The
     accepted keys are `:operation`, `:path`, `:value`, and
-    `:reason` (to override the auto-derived reason).
+    `:reason` (to override the auto-derived reason). An overriding
+    `:reason` reclassifies the error but `raw` still supplies the
+    message, so prefer it whenever the call site knows what the
+    failure means.
 
   ### Examples
 
@@ -155,6 +162,15 @@ defmodule Image.Error do
         path: "/tmp/x.jpg",
         operation: nil,
         message: "The image file \\"/tmp/x.jpg\\" was not found or could not be opened",
+        value: nil
+      }
+
+      iex> Image.Error.wrap(%Color.UnknownColorNameError{name: "nope"}, operation: :new)
+      %Image.Error{
+        reason: %Color.UnknownColorNameError{name: "nope"},
+        operation: :new,
+        path: nil,
+        message: ~s(new: Unknown CSS color name "nope"),
         value: nil
       }
 
