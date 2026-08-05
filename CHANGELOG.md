@@ -68,6 +68,12 @@ This is the changelog for Image version 0.72.0 released on July 22nd, 2026.  For
 
 * **Breaking:** An omitted or `nil` `:background` now defers to libvips' native fill everywhere (transparent for alpha images, black otherwise, paper-white in CMYK), so `Image.flatten/2` with no background matches how `Image.write/3` flattens. Previously `Image.flatten/2` and an alpha `Image.embed/4` defaulted to opaque black.
 
+* **Breaking:** `Image.Pixel.to_pixel/3` and `Image.Pixel.to_srgb/1` return `{:error, %Image.Error{}}` on every error path. They previously leaked bare strings for an unsupported interpretation or encoder, and the `Color` library's own exception structs (`%Color.UnknownColorNameError{}`, `%Color.InvalidComponentError{}`) for an unparseable color. The new reasons are `:invalid_color`, `:color_conversion_error`, `:unsupported_interpretation` and `:unsupported_encoding`, each carrying the offending input in `:value`. This reaches `Image.new/3`, `Image.Draw.*`, `Image.if_then_else/4` and `Image.replace_color/2`, which passed those errors through unchanged.
+
+* **Breaking:** `Image.BackgroundColor.resolve/2` no longer prefixes errors from `Image.Pixel` with `"Invalid background color ..."`, `"Invalid alpha ..."` or `"Could not construct alpha ..."`. The structured reason and `:value` now carry that information, so match on `:reason` rather than the message.
+
+* `Image.Error.wrap/2` describes an exception passed as the raw error with its own `Exception.message/1`, framed with `:operation` and `:path` the same way a libvips message string is. This was already documented but not implemented; such errors previously rendered as `"Image error: %Some.Error{...}"`.
+
 ### Removed
 
 * **Breaking:** Removes the `:black` and `:white` extend modes from `Image.embed/4` and narrows the affine-family `:extend_mode` to `:background | :copy`; combining a content extend mode with an explicit `:background` now errors. Use an explicit `:background` color in place of the removed modes. Thanks to @hlindset for the PR.

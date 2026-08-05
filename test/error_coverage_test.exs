@@ -124,11 +124,13 @@ defmodule Image.ErrorCoverageTest do
                Error.exception(reason: {:invalid_option, :crop}, operation: :thumbnail)
     end
 
-    test "a :reason in the context overrides the raw value" do
+    # An override reclassifies the error. The raw value is still what
+    # accounts for it, so it keeps supplying the message.
+    test "a :reason in the context overrides the raw value but not its message" do
       wrapped = Error.wrap(:enoent, reason: :custom, path: "/tmp/x.jpg")
       assert wrapped.reason == :custom
       assert wrapped.path == "/tmp/x.jpg"
-      assert wrapped.message == "custom"
+      assert wrapped.message == "The image file \"/tmp/x.jpg\" was not found or could not be opened"
     end
 
     test "binary with operation only" do
@@ -144,6 +146,21 @@ defmodule Image.ErrorCoverageTest do
     test "binary with no context" do
       wrapped = Error.wrap("bad seek")
       assert wrapped.message == "bad seek"
+    end
+
+    test "an exception speaks for itself" do
+      wrapped = Error.wrap(%Color.UnknownColorNameError{name: "nope"})
+      assert wrapped.message == ~s(Unknown CSS color name "nope")
+    end
+
+    test "an exception takes the same context framing a binary does" do
+      wrapped =
+        Error.wrap(%Color.UnknownColorNameError{name: "nope"},
+          operation: :open,
+          path: "/tmp/x.jpg"
+        )
+
+      assert wrapped.message == ~s(open /tmp/x.jpg: Unknown CSS color name "nope")
     end
 
     test "an atom other than :enoent" do

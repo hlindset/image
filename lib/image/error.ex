@@ -171,14 +171,14 @@ defmodule Image.Error do
   end
 
   # Build with exception/1 so that one function derives the message
-  # for every construction route.
+  # for every construction route. An overriding `:reason` reclassifies the
+  # error, but `raw` is still what accounts for it, so the message derives
+  # from `raw` either way.
   def wrap(raw, context) do
-    exception(
-      reason: Keyword.get(context, :reason, raw),
-      operation: Keyword.get(context, :operation),
-      path: Keyword.get(context, :path),
-      value: Keyword.get(context, :value)
-    )
+    fields = Keyword.take(context, [:operation, :path, :value])
+    error = exception([reason: raw] ++ fields)
+
+    %{error | reason: Keyword.get(context, :reason, raw)}
   end
 
   ## Internals --------------------------------------------------------------
@@ -187,6 +187,11 @@ defmodule Image.Error do
     cond do
       is_binary(error.reason) ->
         format_libvips(error.operation, error.path, error.reason)
+
+      # An exception already knows how to describe itself, so it is framed
+      # with the context exactly as a libvips message string is.
+      is_exception(error.reason) ->
+        format_libvips(error.operation, error.path, Exception.message(error.reason))
 
       error.reason == :enoent and error.path ->
         "The image file #{inspect(error.path)} was not found or could not be opened"

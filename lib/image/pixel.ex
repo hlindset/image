@@ -497,12 +497,8 @@ defmodule Image.Pixel do
     do: {:ok, %Color.SRGB{r: float, g: float, b: float, alpha: nil}}
 
   defp resolve(other) do
-    case Color.new(other) do
-      {:ok, color} ->
-        {:ok, color}
-
-      {:error, reason} ->
-        {:error, %Image.Error{reason: :invalid_color, value: other, message: describe(reason)}}
+    with {:error, reason} <- Color.new(other) do
+      {:error, Image.Error.wrap(reason, reason: :invalid_color, value: other)}
     end
   end
 
@@ -510,18 +506,10 @@ defmodule Image.Pixel do
   # Restate them as `Image.Error` so the whole module keeps to the
   # library-wide `{:error, %Image.Error{}}` contract.
   defp convert(source, target, options \\ []) do
-    case Color.convert(source, target, options) do
-      {:ok, converted} ->
-        {:ok, converted}
-
-      {:error, reason} ->
-        {:error,
-         %Image.Error{reason: :color_conversion_error, value: source, message: describe(reason)}}
+    with {:error, reason} <- Color.convert(source, target, options) do
+      {:error, Image.Error.wrap(reason, reason: :color_conversion_error, value: source)}
     end
   end
-
-  defp describe(reason) when is_exception(reason), do: Exception.message(reason)
-  defp describe(reason), do: inspect(reason)
 
   # When the image has only one color channel (greyscale), force a
   # luma encoder regardless of the nominal interpretation. libvips
