@@ -973,7 +973,12 @@ defmodule Image.Text do
 
     with {:ok, text} <- maybe_add_pango_span(text, options),
          {:ok, {text_mask, _}} <- Operation.text(text, text_options),
-         {:ok, color_layer} <- Image.new(text_mask, color: options.text_fill_color),
+         # Sized from the mask but not banded from it: the mask is 1-band and
+         # this layer is the color that the mask will become the alpha for.
+         {:ok, color_layer} <-
+           Image.new(Image.width(text_mask), Image.height(text_mask),
+             color: options.text_fill_color
+           ),
          {:ok, joined} <- Operation.bandjoin([color_layer, text_mask]),
          {:ok, {x, y}} <- location_from_options(joined, options.x, options.y, width, height) do
       if width && height do

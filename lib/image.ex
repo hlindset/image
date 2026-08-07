@@ -413,15 +413,21 @@ defmodule Image do
     `Color.new/2` from the Color library.
 
   * `:bands` defines the number of bands (channels)
-    to be created. The default is the number of bands of
-    `:color` option or if `:color` is an integer then the
-    default value is `3`.
+    to be created. The default is the length of the
+    `:color` option when it is a list, otherwise the
+    band count of `:interpretation` (`3` for `:srgb`,
+    `4` for `:cmyk`, `1` for `:bw`), plus one more if
+    `:color` carries its own alpha.
 
   * `:format` defines the format of the image. The
-    default is `{:u, 8}`.
+    default is the band format of `:interpretation`
+    (`{:u, 8}` for `:srgb`, `{:u, 16}` for `:rgb16`,
+    `{:f, 32}` for `:lab`).
 
   * `:interpretation` defines the interpretation of
-    the image. The default is `:srgb`.
+    the image. The default is `:srgb`. It also supplies
+    the defaults for `:bands` and `:format` above, and
+    the space that a named `:color` is converted into.
 
   ### Returns
 
@@ -434,6 +440,17 @@ defmodule Image do
   * Either `width` and `height` OR `image` should
     be provided as arguments but NOT both.
 
+  * A named or CSS color is converted into
+    `:interpretation`, so `color: :red` is real CMYK
+    on a `:cmyk` image rather than sRGB values under a
+    CMYK tag. A numeric list is taken to be already in
+    that interpretation and is used as given. A single
+    number is applied to every band.
+
+  * `:interpretation` must be a color space.
+    `:matrix`, `:histogram` and `:fourier` tag data
+    that has no color meaning, so they are rejected.
+
   ### Examples
 
         # 100x100 pixel image of dark blue slate color
@@ -441,6 +458,11 @@ defmodule Image do
 
         # 100x100 pixel green image, fully transparent
         iex> {:ok, _image} = Image.new(100, 100, color: [0, 255, 0, 255], bands: 4)
+
+        # Red expressed in CMYK, in a 4-band CMYK image
+        iex> {:ok, image} = Image.new(10, 10, color: :red, interpretation: :cmyk)
+        iex> Image.get_pixel(image, 0, 0)
+        {:ok, [0, 255, 255, 0]}
 
   """
   @doc subject: "Load and save"
@@ -470,14 +492,9 @@ defmodule Image do
 
   def new(width, height, options)
       when is_integer(width) and is_integer(height) and width > 0 and height > 0 do
-    with {:ok, options} <- Options.New.validate_options(options) do
-      {:ok, pixel} =
-        Operation.black!(1, 1, bands: options.bands)
-        |> Image.Math.add!(options.color)
-        |> Operation.cast(options.format)
-
-      {:ok, image} = Operation.embed(pixel, 0, 0, width, height, extend: :VIPS_EXTEND_COPY)
-
+    with {:ok, options} <- Options.New.validate_options(options),
+         {:ok, pixel} <- new_pixel(options),
+         {:ok, image} <- Operation.embed(pixel, 0, 0, width, height, extend: :VIPS_EXTEND_COPY) do
       Operation.copy(image,
         interpretation: options.interpretation,
         xres: options.x_res,
@@ -487,6 +504,30 @@ defmodule Image do
       )
     end
   end
+
+  # Build the 1x1 pixel the image is tiled from. The blank canvas is created
+  # in its final shape and tagged first so that `Image.Pixel.to_pixel/3` has
+  # something to resolve the color against. That is what makes a named color
+  # mean the same thing here as it does when drawn onto an existing image.
+  defp new_pixel(options) do
+    canvas =
+      Operation.black!(1, 1, bands: options.bands)
+      |> Operation.cast!(options.format)
+      |> Operation.copy!(interpretation: options.interpretation)
+
+    with {:ok, color} <- resolve_new_color(canvas, options.color) do
+      canvas
+      |> Image.Math.add!(color)
+      |> Operation.cast(options.format)
+    end
+  end
+
+  # A number is a uniform value across every band, including alpha, which is
+  # how `color: 0` produces a transparent canvas on a 4-band image. A numeric
+  # list is already in the image's interpretation. Neither is converted.
+  defp resolve_new_color(_canvas, color) when is_number(color), do: {:ok, color}
+  defp resolve_new_color(_canvas, color) when is_list(color), do: {:ok, color}
+  defp resolve_new_color(canvas, color), do: Pixel.to_pixel(canvas, color)
 
   @doc """
   Return a new image of the given dimensions and
@@ -508,9 +549,6 @@ defmodule Image do
 
   ### Options
 
-  * `:bands` defines the number of bands (channels)
-    to be created. The default is `3`.
-
   * `:color` defines the color of the image. This
     can be specified as a single integer which will
     be applied to all bands, or a list of
@@ -520,11 +558,8 @@ defmodule Image do
     string or atom. For example: `:misty_rose`. See
     `Color.new/2` from the Color library.
 
-  * `:format` defines the format of the image. The
-    default is `{:u, 8}`.
-
-  * `:interpretation` defines the interpretation of
-    the image. The default is `:srgb`.
+  * `:bands`, `:format` and `:interpretation` are as
+    described in `new/3`.
 
   ### Returns
 

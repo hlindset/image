@@ -40,6 +40,10 @@
 
 * `Image.affine/3` and `Image.rotate/3` now premultiply alpha explicitly only when the background is non-opaque, since libvips handles the other cases itself. `Image.shear/4` and `Image.translate/4` inherit this. ([#217](https://github.com/elixir-image/image/pull/217))
 
+* **Breaking:** `Image.new/3` now derives `:bands` and `:format` from `:interpretation`, and converts a named `:color` into it. `Image.new(1, 1, interpretation: :cmyk)` returns a 4-band image rather than a 3-band one, `interpretation: :bw` returns 1 band, `interpretation: :lab` uses `{:f, 32}` rather than clipping into `{:u, 8}`, and `color: :red, interpretation: :cmyk` returns `[0, 255, 255, 0]` rather than the sRGB `[255, 0, 0]`. Images built with the default `:srgb` are unchanged. A numeric `:color` list is still taken as already being in the interpretation. `Image.new/3` also rejects `:matrix`, `:histogram` and `:fourier`, which tag data with no color meaning.
+
+* **Breaking:** `Image.new/3` returns `{:error, %Image.Error{reason: :invalid_option}}` when a `:color` list does not have `:bands` values. `Image.new(1, 1, color: :black, bands: 4)` raised `Image.Error` out of a non-bang function before, and `color: [1, 2, 3], bands: 1` silently produced a 3-band image. A single-value list still applies to every band.
+
 * **Breaking:** `Image.Pixel.to_pixel/3` returns real scRGB for an `:scrgb` image. It previously returned gamma-encoded sRGB values, which are up to 27 dE00 from the color asked for, and affected every function that draws a color onto an scRGB image.
 
 ### Fixed
