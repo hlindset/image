@@ -10,6 +10,10 @@
 
 * Adds `Image.Pixel.strip_alpha/2` which returns a resolved pixel without its alpha component. It consolidates the truncation that `Image.flatten/2`, `Image.chroma_mask/2`, `Image.Options.Trim` and `Image.Options.Write` each did separately before. ([#222](https://github.com/elixir-image/image/pull/222))
 
+* `Image.Pixel.to_pixel/3` supports the `:xyz` and `:yxy` interpretations. `Image.k_means/2` on an XYZ image returns a result rather than raising `Image.Error`.
+
+* `Image.Pixel.to_pixel/3` accepts a one-element color list wherever it accepts the equivalent number, so `[128]` and `128` mean the same uniform grey. It previously returned `%Color.InvalidColorError{}` unless the image happened to have one band.
+
 ### Changed
 
 * **Breaking:** `Image.average/1` and `Image.chroma_color/1` now return `{:ok, [number()]} | {:error, Image.Error.t()}` instead of a bare list on success. The previous success type was documented as `Pixel.t()` but was always a list of numbers. ([#219](https://github.com/elixir-image/image/pull/219))
@@ -35,6 +39,8 @@
 * **Breaking:** `Image.k_means/2` and `Image.reduce_colors/2` return `{:error, %Image.Error{reason: :invalid_option}}` for an invalid or unknown option instead of raising `NimbleOptions.ValidationError`. `Image.k_means!/2` and `Image.reduce_colors!/2` raise `Image.Error` rather than the NimbleOptions exception. `operation` is set to `k_means` or `reduce_colors`, and `value` is `{key, value}` for an invalid value or the list of keys for unknown options. ([#227](https://github.com/elixir-image/image/pull/227))
 
 * `Image.affine/3` and `Image.rotate/3` now premultiply alpha explicitly only when the background is non-opaque, since libvips handles the other cases itself. `Image.shear/4` and `Image.translate/4` inherit this. ([#217](https://github.com/elixir-image/image/pull/217))
+
+* **Breaking:** `Image.Pixel.to_pixel/3` returns real scRGB for an `:scrgb` image. It previously returned gamma-encoded sRGB values, which are up to 27 dE00 from the color asked for, and affected every function that draws a color onto an scRGB image.
 
 ### Fixed
 

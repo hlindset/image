@@ -63,10 +63,15 @@ defmodule Image.Pixel do
     srgb: {Color.SRGB, :uchar_rgb},
     rgb: {Color.SRGB, :uchar_rgb},
     rgb16: {Color.SRGB, :ushort_rgb},
-    scrgb: {Color.SRGB, :float_rgb},
+    # libvips scRGB is linear light with the sRGB primaries. Color.SRGB
+    # is those same primaries plus the sRGB transfer function, so it
+    # encodes where scRGB does not. Color.RGB is the linear form.
+    scrgb: {Color.RGB, :float_rgb},
     lab: {Color.Lab, :float_lab},
     labs: {Color.Lab, :short_lab},
     lch: {Color.LCHab, :float_lch},
+    xyz: {Color.XYZ, :float_xyz},
+    yxy: {Color.XyY, :float_yxy},
     cmyk: {Color.CMYK, :uchar_cmyk},
     hsv: {Color.HSV, :uchar_hsv},
     bw: {Color.SRGB, :uchar_grey},
@@ -222,7 +227,7 @@ defmodule Image.Pixel do
   end
 
   defp pre_encoded?(list, interpretation)
-       when interpretation in [:lab, :labs, :lch, :scrgb, :xyz] do
+       when interpretation in [:lab, :labs, :lch, :scrgb, :xyz, :yxy] do
     # Float-valued interpretations: if the caller sent floats at all,
     # trust them; integer lists in these spaces are almost always a
     # mis-use and we should convert instead.
@@ -258,7 +263,8 @@ defmodule Image.Pixel do
 
     with {:ok, source_struct} <- resolve(color),
          {:ok, {target_module, encoder}} <- target_for(interpretation, color_bands),
-         {:ok, converted} <- Color.convert(source_struct, target_module, intent: intent),
+         {:ok, converted} <-
+           Color.convert(source_struct, target_module, convert_options(target_module, intent)),
          {:ok, base_pixel} <- encode(encoder, converted),
          {:ok, alpha_value} <- alpha_for(encoder, explicit_alpha, source_struct, has_alpha) do
       {:ok, fit_bands(base_pixel, alpha_value, bands, has_alpha)}
@@ -496,7 +502,41 @@ defmodule Image.Pixel do
   defp resolve(float) when is_float(float) and float >= 0.0 and float <= 1.0,
     do: {:ok, %Color.SRGB{r: float, g: float, b: float, alpha: nil}}
 
+  # A one-element list is the same uniform grey a scalar is. Without
+  # this it reaches Color.new/1, which rejects it, so `128` and `[128]`
+  # would mean different things.
+  defp resolve([number]) when is_number(number), do: resolve(number)
+
   defp resolve(other), do: Color.new(other)
+
+  # Each encoder implies exactly one band count and band format, so the
+  # natural shape of an interpretation falls out of the same table that
+  # drives conversion. `Image.new/3` uses this to size a new image from
+  # its `:interpretation` instead of guessing from `:color`.
+  @encoder_shape %{
+    uchar_rgb: {3, {:u, 8}},
+    ushort_rgb: {3, {:u, 16}},
+    float_rgb: {3, {:f, 32}},
+    float_lab: {3, {:f, 32}},
+    short_lab: {3, {:s, 16}},
+    float_lch: {3, {:f, 32}},
+    float_xyz: {3, {:f, 32}},
+    float_yxy: {3, {:f, 32}},
+    uchar_cmyk: {4, {:u, 8}},
+    uchar_hsv: {3, {:u, 8}},
+    uchar_grey: {1, {:u, 8}},
+    ushort_grey: {1, {:u, 16}}
+  }
+
+  @doc false
+  @spec shape(interpretation :: Image.Interpretation.t()) ::
+          {:ok, {pos_integer(), Image.BandFormat.t()}} | {:error, String.t()}
+  def shape(interpretation) do
+    case Map.fetch(@interpretation_to_target, interpretation) do
+      {:ok, {_module, encoder}} -> {:ok, Map.fetch!(@encoder_shape, encoder)}
+      :error -> {:error, unsupported_interpretation(interpretation)}
+    end
+  end
 
   # When the image has only one color channel (greyscale), force a
   # luma encoder regardless of the nominal interpretation. libvips
@@ -515,11 +555,19 @@ defmodule Image.Pixel do
         {:ok, pair}
 
       :error ->
-        {:error,
-         "Image.Pixel does not yet support the #{inspect(interpretation)} interpretation. " <>
-           "Pass a numeric pixel list directly, or open an issue."}
+        {:error, unsupported_interpretation(interpretation)}
     end
   end
+
+  defp unsupported_interpretation(interpretation) do
+    "Image.Pixel does not yet support the #{inspect(interpretation)} interpretation. " <>
+      "Pass a numeric pixel list directly, or open an issue."
+  end
+
+  # Color.RGB spans every RGB working space, so it has to be told which
+  # one. See @interpretation_to_target for why scRGB uses :SRGB.
+  defp convert_options(Color.RGB, intent), do: [intent: intent, working_space: :SRGB]
+  defp convert_options(_target_module, intent), do: [intent: intent]
 
   ## Encoders --------------------------------------------------------------
 
@@ -529,8 +577,16 @@ defmodule Image.Pixel do
   defp encode(:ushort_rgb, %Color.SRGB{r: r, g: g, b: b}),
     do: {:ok, [scale(r, 65_535), scale(g, 65_535), scale(b, 65_535)]}
 
-  defp encode(:float_rgb, %Color.SRGB{r: r, g: g, b: b}),
+  defp encode(:float_rgb, %Color.RGB{r: r, g: g, b: b}),
     do: {:ok, [r * 1.0, g * 1.0, b * 1.0]}
+
+  # libvips XYZ and Yxy put Y on 0..100. Color.XYZ and Color.XyY
+  # normalise it to 1.
+  defp encode(:float_xyz, %Color.XYZ{x: x, y: y, z: z}),
+    do: {:ok, [x * 100.0, y * 100.0, z * 100.0]}
+
+  defp encode(:float_yxy, %Color.XyY{x: x, y: y, yY: yy}),
+    do: {:ok, [yy * 100.0, x * 1.0, y * 1.0]}
 
   defp encode(:float_lab, %Color.Lab{l: l, a: a, b: b}),
     do: {:ok, [l * 1.0, a * 1.0, b * 1.0]}
@@ -608,15 +664,18 @@ defmodule Image.Pixel do
     :uchar_grey,
     :float_lab,
     :float_lch,
-    :short_lab
+    :short_lab,
+    :float_xyz,
+    :float_yxy
   ]
   @alpha_max_65535 [:ushort_rgb, :ushort_grey]
 
   # The alpha band uses the same numeric type as the rest of the
   # interpretation: 0..255 for uchar, 0..65535 for ushort, 0.0..1.0
   # for float-typed bands. scRGB is the only float interpretation whose
-  # alpha is in [0, 1]. LABS / Lab / LCH carry a 0..255 alpha band
-  # despite their float/short color bands.
+  # alpha is in [0, 1]. LABS / Lab / LCH / XYZ / Yxy carry a 0..255
+  # alpha band despite their float/short color bands, matching
+  # vips_interpretation_max_alpha.
   defp scale_alpha_to_encoder(alpha, encoder) do
     case encoder do
       e when e in @alpha_max_255 -> scale(alpha, 255)

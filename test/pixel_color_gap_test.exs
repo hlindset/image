@@ -17,12 +17,15 @@ defmodule Image.PixelColorGapTest do
       assert Pixel.to_pixel(image, [50.0, 10.0, 10.0]) == {:ok, [50.0, 10.0, 10.0]}
     end
 
+    # :matrix is a convolution kernel tag rather than a colorspace, so it
+    # has no color meaning to support. Colorspaces that are merely
+    # unsupported today would make this test fail the day they land.
     test "a list for an unsupported interpretation is not pre-encoded and errors" do
       image = Image.new!(2, 2, color: :black)
-      {:ok, yxy} = Operation.copy(image, interpretation: :VIPS_INTERPRETATION_YXY)
+      {:ok, matrix} = Operation.copy(image, interpretation: :VIPS_INTERPRETATION_MATRIX)
 
-      assert {:error, message} = Pixel.to_pixel(yxy, [1, 2, 3])
-      assert message =~ ":yxy interpretation"
+      assert {:error, message} = Pixel.to_pixel(matrix, [1, 2, 3])
+      assert message =~ ":matrix interpretation"
     end
 
     test "a non-pre-encoded float list on a mutable image is converted" do
@@ -124,10 +127,16 @@ defmodule Image.PixelColorGapTest do
   describe "Image.BackgroundColor.resolve/2" do
     test "resolving :average for an alpha image in an unsupported interpretation errors" do
       alpha_image = Image.new!(2, 2, color: [10, 20, 30, 255])
-      {:ok, yxy_alpha} = Operation.copy(alpha_image, interpretation: :VIPS_INTERPRETATION_YXY)
+
+      # Reaching the alpha-construction failure needs an interpretation that
+      # reports an alpha band but has no color support. :cmc is currently the
+      # only one: the non-color tags (:matrix, :histogram, :fourier) report no
+      # alpha, so put_alpha_band/3 returns before it can fail. Adding CMC
+      # support means finding another way to exercise this branch.
+      {:ok, cmc_alpha} = Operation.copy(alpha_image, interpretation: :VIPS_INTERPRETATION_CMC)
 
       assert {:error, %Image.Error{message: message}} =
-               Image.BackgroundColor.resolve(yxy_alpha, :average)
+               Image.BackgroundColor.resolve(cmc_alpha, :average)
 
       assert message =~ "Could not construct alpha"
     end
