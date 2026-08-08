@@ -205,6 +205,57 @@ defmodule Image.PixelTest do
     end
   end
 
+  describe "to_pixel/3 against an scRGB image" do
+    setup do
+      {:ok, image} = Image.new(2, 2, color: :black)
+      {:ok, image} = Image.to_colorspace(image, :scrgb)
+      {:ok, image: image}
+    end
+
+    test "round trips through libvips back to the requested sRGB color", %{image: image} do
+      colors = [
+        "#000000",
+        "#010101",
+        "#404040",
+        "#808080",
+        "#fefefe",
+        "#ffffff",
+        "#4080c0",
+        "#663399"
+      ]
+
+      for color <- colors do
+        {:ok, pixel} = Pixel.to_pixel(image, color)
+        {:ok, drawn} = Image.Draw.rect(image, 0, 0, 2, 2, color: pixel)
+        {:ok, srgb} = Image.to_colorspace(drawn, :srgb)
+
+        assert {:ok, actual} = Image.get_pixel(srgb, 0, 0)
+        assert {:ok, expected} = Pixel.to_srgb(color)
+        assert actual == expected, "#{inspect(color)} round tripped to #{inspect(actual)}"
+      end
+    end
+
+    test "a float list passes through unclamped", %{image: image} do
+      assert Pixel.to_pixel(image, [2.5, 0.0, -0.1]) == {:ok, [2.5, 0.0, -0.1]}
+    end
+  end
+
+  describe "to_pixel/3 against a single band scRGB image" do
+    setup do
+      {:ok, image} = Image.new(2, 2, color: :black)
+      {:ok, scrgb} = Image.to_colorspace(image, :scrgb)
+      {:ok, image: hd(Image.split_bands(scrgb))}
+    end
+
+    test "resolves to the color's CIE Y", %{image: image} do
+      for color <- [:white, :black, "#808080", :red, :lime, :blue, "#663399"] do
+        assert {:ok, [y]} = Pixel.to_pixel(image, color)
+        assert {:ok, %Color.XYZ{y: expected}} = Color.convert(color, Color.XYZ)
+        assert_in_delta y, expected, 0.0001, "#{inspect(color)} resolved to #{y}"
+      end
+    end
+  end
+
   describe "strip_alpha/2" do
     test "drops the last band of a full pixel on an alpha image" do
       {:ok, image} = Image.new(2, 2, color: [0, 0, 0, 255])

@@ -12,6 +12,10 @@
 
 ### Changed
 
+* **Breaking:** `Image.Pixel.to_pixel/3` returns linear light values for an `:scrgb` image. It previously returned gamma encoded sRGB, so a color drawn onto an scRGB image came out too bright and desaturated. This affects every function that resolves a color against an scRGB image. ([#230](https://github.com/elixir-image/image/pull/230))
+
+* **Breaking:** `Image.Pixel.to_pixel/3` returns relative luminance (CIE `Y`) for a single band `:scrgb` image. It previously returned a `0..255` integer, so `:white` resolved to `255` rather than `1.0`. ([#230](https://github.com/elixir-image/image/pull/230))
+
 * **Breaking:** `Image.average/1` and `Image.chroma_color/1` now return `{:ok, [number()]} | {:error, Image.Error.t()}` instead of a bare list on success. The previous success type was documented as `Pixel.t()` but was always a list of numbers. ([#219](https://github.com/elixir-image/image/pull/219))
 
 * **Breaking:** `Image.warp_perspective/4` and `Image.straighten_perspective/3` now preserve image alpha instead of always flattening, so the band count and pixels of the result may change. An omitted `:background` defers to libvips' fill rather than defaulting to `:black`, matching the other background-taking functions. Images without alpha are unaffected, since libvips fills those with black. ([#216](https://github.com/elixir-image/image/pull/216))
