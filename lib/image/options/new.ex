@@ -69,15 +69,8 @@ defmodule Image.Options.New do
       {:ok, shape} ->
         {:ok, shape}
 
-      {:error, reason} ->
-        {:error,
-         %Image.Error{
-           reason: :invalid_option,
-           value: interpretation,
-           message:
-             "Invalid option or option value: interpretation: " <>
-               "#{inspect(interpretation)}. #{reason}"
-         }}
+      {:error, error} ->
+        {:error, Image.Error.wrap(error, reason: :invalid_option, value: interpretation)}
     end
   end
 
@@ -173,13 +166,7 @@ defmodule Image.Options.New do
   # Color struct with an alpha component) asks for an alpha band, whatever
   # the interpretation's own band count is.
   defp alpha_bands(color) when is_number(color), do: 0
-
-  defp alpha_bands(color) do
-    case Pixel.to_srgb(color) do
-      {:ok, srgb} when length(srgb) == 4 -> 1
-      _other -> 0
-    end
-  end
+  defp alpha_bands(color), do: if(Pixel.alpha?(color), do: 1, else: 0)
 
   # An explicit :format wins. Otherwise the interpretation decides, so a
   # color destined for :lab or :rgb16 is not silently clipped into {:u, 8}.

@@ -528,13 +528,35 @@ defmodule Image.Pixel do
     ushort_grey: {1, {:u, 16}}
   }
 
+  # Whether a color carries its own alpha component, which is what decides
+  # if an image built from it needs an alpha band. Answered from the resolved
+  # Color struct rather than from the length of a converted pixel, so the
+  # Image-only aliases (`:none`, `:opaque`, `:transparent`) are included:
+  # Color.new/1 rejects the first two and reports no alpha for the third.
+  @doc false
+  @spec alpha?(color :: t()) :: boolean()
+  def alpha?(color) do
+    case resolve(color) do
+      {:ok, resolved} -> not is_nil(Map.get(resolved, :alpha))
+      {:error, _reason} -> false
+    end
+  end
+
   @doc false
   @spec shape(interpretation :: Image.Interpretation.t()) ::
-          {:ok, {pos_integer(), Image.BandFormat.t()}} | {:error, String.t()}
+          {:ok, {pos_integer(), Image.BandFormat.t()}} | {:error, Image.Error.t()}
   def shape(interpretation) do
     case Map.fetch(@interpretation_to_target, interpretation) do
-      {:ok, {_module, encoder}} -> {:ok, Map.fetch!(@encoder_shape, encoder)}
-      :error -> {:error, unsupported_interpretation(interpretation)}
+      {:ok, {_module, encoder}} ->
+        {:ok, Map.fetch!(@encoder_shape, encoder)}
+
+      :error ->
+        {:error,
+         Image.Error.exception(
+           reason: :unsupported_interpretation,
+           value: interpretation,
+           message: unsupported_interpretation(interpretation)
+         )}
     end
   end
 

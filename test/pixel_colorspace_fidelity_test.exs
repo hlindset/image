@@ -69,9 +69,13 @@ defmodule Image.PixelColorspaceFidelityTest do
       end
     end
 
-    test "reports interpretations that carry no color meaning" do
-      assert {:error, message} = Pixel.shape(:matrix)
-      assert message =~ ":matrix interpretation"
+    # A structured error rather than a bare string, so callers can add context
+    # with Image.Error.wrap/2 without losing the message.
+    test "returns a structured error for an interpretation it has no entry for" do
+      assert {:error, %Image.Error{reason: :unsupported_interpretation, value: :matrix} = error} =
+               Pixel.shape(:matrix)
+
+      assert Exception.message(error) =~ ":matrix interpretation"
     end
   end
 
