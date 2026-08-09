@@ -63,7 +63,7 @@ defmodule Image.Pixel do
     srgb: {Color.SRGB, :uchar_rgb},
     rgb: {Color.SRGB, :uchar_rgb},
     rgb16: {Color.SRGB, :ushort_rgb},
-    scrgb: {Color.SRGB, :float_rgb},
+    scrgb: {Color.RGB, :float_rgb},
     lab: {Color.Lab, :float_lab},
     labs: {Color.Lab, :short_lab},
     lch: {Color.LCHab, :float_lch},
@@ -139,12 +139,19 @@ defmodule Image.Pixel do
   * For float interpretations (`:scrgb`, `:lab`, `:lch`, etc.) the
     output is floats in the natural range of that space.
 
+  * `:scrgb` is linear light: mid grey `"#808080"` encodes as `0.216`,
+    not `0.502`.
+
   * The output band count matches `Vix.Vips.Image.bands/1` exactly.
     Alpha is appended when the image has an alpha band, and stripped
     when it does not.
 
-  * 1-band (`:bw`, `:grey16`) images receive a single luminance
-    channel computed from the perceptually-uniform `Color.Lab` `L*`.
+  * 1-band `:bw` and `:grey16` images receive a single luminance
+    channel computed from the perceptually-uniform `Color.Lab` `L*`,
+    as does any other interpretation that arrives with one band.
+
+  * 1-band `:scrgb` is the exception: it holds linear light, so it
+    receives relative luminance computed from `Color.XYZ` `Y`.
 
   ### Examples
 
@@ -258,7 +265,7 @@ defmodule Image.Pixel do
 
     with {:ok, source_struct} <- resolve(color),
          {:ok, {target_module, encoder}} <- target_for(interpretation, color_bands),
-         {:ok, converted} <- Color.convert(source_struct, target_module, intent: intent),
+         {:ok, converted} <- convert(source_struct, target_module, intent),
          {:ok, base_pixel} <- encode(encoder, converted),
          {:ok, alpha_value} <- alpha_for(encoder, explicit_alpha, source_struct, has_alpha) do
       {:ok, fit_bands(base_pixel, alpha_value, bands, has_alpha)}
@@ -498,12 +505,23 @@ defmodule Image.Pixel do
 
   defp resolve(other), do: Color.new(other)
 
+  # Color.RGB is the only target that needs a working space
+  # libvips scRGB is linear light on the sRGB primaries.
+  defp convert(source, Color.RGB, intent),
+    do: Color.convert(source, Color.RGB, :SRGB, intent: intent)
+
+  defp convert(source, target, intent),
+    do: Color.convert(source, target, intent: intent)
+
   # When the image has only one color channel (greyscale), force a
   # luma encoder regardless of the nominal interpretation. libvips
   # tags single-band images as :srgb / :rgb / :multiband fairly often
-  # so we can't rely on the interpretation atom alone.
+  # so we can't rely on the interpretation atom alone. The tag still
+  # picks the value range, which the band count cannot tell us.
+  defp target_for(:scrgb, 1), do: {:ok, {Color.RGB, :float_grey}}
+
   defp target_for(interpretation, 1)
-       when interpretation in [:srgb, :rgb, :multiband, :bw, :scrgb],
+       when interpretation in [:srgb, :rgb, :multiband, :bw],
        do: {:ok, {Color.SRGB, :uchar_grey}}
 
   defp target_for(interpretation, 1) when interpretation in [:rgb16, :grey16],
@@ -529,8 +547,14 @@ defmodule Image.Pixel do
   defp encode(:ushort_rgb, %Color.SRGB{r: r, g: g, b: b}),
     do: {:ok, [scale(r, 65_535), scale(g, 65_535), scale(b, 65_535)]}
 
-  defp encode(:float_rgb, %Color.SRGB{r: r, g: g, b: b}),
+  defp encode(:float_rgb, %Color.RGB{r: r, g: g, b: b}),
     do: {:ok, [r * 1.0, g * 1.0, b * 1.0]}
+
+  defp encode(:float_grey, %Color.RGB{} = rgb) do
+    with {:ok, %Color.XYZ{y: y}} <- Color.RGB.to_xyz(rgb) do
+      {:ok, [y * 1.0]}
+    end
+  end
 
   defp encode(:float_lab, %Color.Lab{l: l, a: a, b: b}),
     do: {:ok, [l * 1.0, a * 1.0, b * 1.0]}
@@ -611,6 +635,7 @@ defmodule Image.Pixel do
     :short_lab
   ]
   @alpha_max_65535 [:ushort_rgb, :ushort_grey]
+  @alpha_max_1 [:float_rgb, :float_grey]
 
   # The alpha band uses the same numeric type as the rest of the
   # interpretation: 0..255 for uchar, 0..65535 for ushort, 0.0..1.0
@@ -621,7 +646,7 @@ defmodule Image.Pixel do
     case encoder do
       e when e in @alpha_max_255 -> scale(alpha, 255)
       e when e in @alpha_max_65535 -> scale(alpha, 65_535)
-      :float_rgb -> alpha * 1.0
+      e when e in @alpha_max_1 -> alpha * 1.0
     end
   end
 
