@@ -35,7 +35,7 @@ defmodule Image.Options.Open do
           {:access, file_access()}
           | {:fail_on, fail_on()}
           | {:pages, pages()}
-          | {:page, 1..100_000}
+          | {:page, 0..100_000}
         ]
 
   @type webp_open_options :: [
@@ -43,7 +43,7 @@ defmodule Image.Options.Open do
           | {:fail_on, fail_on()}
           | {:pages, pages()}
           | {:page, 0..100_000}
-          | {:scale, non_neg_integer() | float()}
+          | {:scale, 1..1024 | float()}
         ]
 
   @type gif_open_options :: [
@@ -64,7 +64,7 @@ defmodule Image.Options.Open do
   meaning all pages.
 
   """
-  @type pages :: pos_integer() | -1 | :all
+  @type pages :: 1..100_000 | -1 | :all
 
   @typedoc """
   The file access mode when opening

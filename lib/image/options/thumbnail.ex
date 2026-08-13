@@ -26,7 +26,7 @@ defmodule Image.Options.Thumbnail do
           | {:fit, :fill | :contain | :cover}
         ]
 
-  @type resize_dimension :: :width | :height | :both
+  @type resize_dimension :: :up | :down | :both | :force
 
   @intent_map %{
     perceptual: :VIPS_INTENT_PERCEPTUAL,

@@ -11,7 +11,7 @@ defmodule Image.Options.Trim do
   """
   @type trim_options :: [
           {:background, Pixel.t() | :auto | :alpha}
-          | {:threshold, non_neg_integer()}
+          | {:threshold, pos_integer()}
         ]
 
   @doc """

@@ -9,8 +9,8 @@ defmodule Image.Options.Text do
 
   @type t :: [
           {:font, String.t()}
-          | {:font_size, pos_integer()}
-          | {:dpi, pos_integer()}
+          | {:font_size, non_neg_integer()}
+          | {:dpi, non_neg_integer()}
           | {:text_fill_color, Pixel.t()}
           | {:text_stroke_width, pos_integer()}
           | {:font_weight, atom()}
@@ -20,11 +20,11 @@ defmodule Image.Options.Text do
           | {:background_stroke_opacity, float()}
           | {:background_fill_opacity, float()}
           | {:padding, [non_neg_integer(), ...]}
-          | {:letter_spacing, :normal | pos_integer()}
-          | {:x, :center | :left | :right | pos_integer()}
-          | {:y, :middle | :top | :bottom | pos_integer()}
-          | {:width, pos_integer() | nil}
-          | {:height, pos_integer() | nil}
+          | {:letter_spacing, :normal | integer()}
+          | {:x, :center | :left | :right | non_neg_integer()}
+          | {:y, :middle | :top | :bottom | non_neg_integer()}
+          | {:width, non_neg_integer() | nil}
+          | {:height, non_neg_integer() | nil}
           | {:fontfile, String.t() | nil}
           | {:align, :left | :right | :center}
           | {:justify, boolean()}

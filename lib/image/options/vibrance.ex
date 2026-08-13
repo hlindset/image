@@ -8,7 +8,7 @@ defmodule Image.Options.Vibrance do
   Options applicable to Image.vibrance/3
 
   """
-  @type vibrance_option :: {:threshold, pos_integer()}
+  @type vibrance_option :: {:threshold, 1..100}
 
   @typedoc """
   Options list for Image.vibrance/3

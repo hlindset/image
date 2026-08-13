@@ -9,8 +9,8 @@ defmodule Image.Options.Blurhash do
 
   """
   @type blurhash_option ::
-          {:x_components, pos_integer()}
-          | {:y_components, pos_integer()}
+          {:x_components, 1..9}
+          | {:y_components, 1..9}
 
   @typedoc """
   Options list for Image.Blurhash.encode/2

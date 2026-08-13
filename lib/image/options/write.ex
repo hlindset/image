@@ -26,7 +26,7 @@ defmodule Image.Options.Write do
 
   @typedoc "Options for writing an image stream"
   @type stream_write_option ::
-          {:buffer_size, pos_integer() | :unbuffered}
+          {:buffer_size, non_neg_integer() | :unbuffered}
           | {:suffix, String.t()}
 
   @typedoc "Options for writing a jpeg file with `Image.write/2`."

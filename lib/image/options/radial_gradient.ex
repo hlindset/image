@@ -11,7 +11,7 @@ defmodule Image.Options.RadialGradient do
   @type radial_gradient_option ::
           {:start_color, Pixel.t()}
           | {:finish_color, Pixel.t()}
-          | {:feather, pos_integer()}
+          | {:feather, 1..10}
           | {:radius, number()}
 
   @typedoc """
